@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>APS ESE 2026 - Especialistas</title>
+
+    <!-- Meta PWA / Directivas Moviles Android e iOS -->
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="/manifest.json?v=2.1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Autenticacion Frontal Estricta -->
+    <script>
+        (function() {
+            const currentPath = window.location.pathname;
+            const token = localStorage.getItem('token');
+            const rol = localStorage.getItem('rol');
+
+            if (!token && currentPath !== '/login' && currentPath !== '/') {
+                window.location.replace('/login');
+                return;
+            }
+
+            if (currentPath === '/usuarios' && rol === 'DILIGENCIADOR') {
+                window.location.replace('/dashboard');
+                return;
+            }
+        })();
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="/static/css/global.css?v=2.1.0">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=2.1.0">
+    <link rel="stylesheet" href="/static/css/custom_alerts.css?v=2.1.0">
+
+    <style>
+        /* Arquitectura Failsafe: Flexbox garantizado en el sidebar */
+        .sidebar {
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        .sidebar-menu-container {
+            flex-grow: 1 !important;
+            overflow-y: auto !important;
+        }
+
+        .sidebar-footer-container {
+            flex-shrink: 0 !important;
+            padding: 15px !important;
+            background: #0f172a !important; /* Mismo color del sidebar para integracion visual */
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+            z-index: 9999 !important;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- Menu Lateral Responsivo (Sidebar) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header" style="flex-shrink: 0;">
+                <h2 style="color: white; margin: 0; padding: 20px; font-size: 1.2rem;">INFORME APS</h2>
+            </div>
+
+            <!-- Contenedor Scrollable del Menu -->
+            <div class="sidebar-menu-container">
+                <ul class="sidebar-menu" style="list-style: none; padding: 0; margin: 0;">
+                    <li>
+                        <a href="/dashboard"><i class="fas fa-home"></i> Inicio</a>
+                    </li>
+                    <li>
+                        <a href="/nuevo_registro"><i class="fas fa-file-medical"></i> Nuevo Registro APS</a>
+                    </li>
+                    <li>
+                        <a href="/sincronizacion"><i class="fas fa-sync"></i> Sincronizacion Offline</a>
+                    </li>
+                    <li>
+                        <a href="/registros"><i class="fas fa-database"></i> Gestor de Expedientes</a>
+                    </li>
+                    <li id="menu-iam" style="display: none;">
+                        <a href="/usuarios"><i class="fas fa-users-cog"></i> Administracion de Cuentas</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Contenedor Fijo Inferior Failsafe -->
+            <div class="sidebar-footer-container">
+                <button id="btn-clear-cache" style="width: 100%; background: rgba(220, 38, 38, 0.1); color: #ef4444; border: 1px solid rgba(220, 38, 38, 0.3); padding: 12px 15px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 0.95rem; transition: background 0.3s;" title="Fuerza la actualizacion del sistema web">
+                    <i class="fas fa-broom"></i> Borrar Cache
+                </button>
+            </div>
+        </aside>
+
+        <!-- Contenedor Dinamico Principal -->
+        <div class="main-content">
+            <header class="top-navbar">
+                <div class="navbar-left">
+                    <button id="sidebar-toggle" class="mobile-toggle-btn" aria-label="Alternar menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 style="font-size: 1.1rem; color: var(--navy); font-weight: 700; margin-left: 10px; margin-top:0; margin-bottom:0;">
+                        PANEL DE CONTROL APS
+                    </h2>
+                </div>
+
+                <div class="navbar-left" style="display: flex; align-items: center;">
+                    <div id="offline-indicator" style="display:none; color:#eab308; background:#fef08a; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:10px;">
+                        <i class="fas fa-wifi-slash"></i> MODO OFFLINE
+                    </div>
+                    <div class="user-info">
+                        <i class="fas fa-user-md fa-lg" style="color: var(--teal);"></i>
+                        <span id="user-display-email">No autenticado</span>
+                    </div>
+                    <button class="btn-logout" id="btn-logout">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesion
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-body">
+                <!-- INYECCION DINAMICA DEL MOTOR JINJA2 -->
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts Globales -->
+    <script src="/static/js/custom_alerts.js?v=2.1.0"></script>
+    <script src="/static/js/layout.js?v=2.1.0"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js?v=2.1.0').then(registration => {
+                    registration.update();
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                window.location.reload(true);
+                            }
+                        });
+                    });
+                });
+            });
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

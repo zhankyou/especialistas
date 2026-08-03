@@ -1,0 +1,181 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Terapia Respiratoria · APS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/nutricion.css">
+{% endblock %}
+
+{% block header_title %}TERAPIA RESPIRATORIA APS{% endblock %}
+
+{% block content %}
+<form id="respiratoria-form" class="form-container">
+    
+    <div class="section-title">1. Datos Generales de la Visita e Identificación (Estandarizado)</div>
+    <div class="form-grid">
+        <div class="form-group"><label>Fecha de Visita</label><input type="date" id="fecha_visita" class="form-control" required></div>
+        <div class="form-group"><label>Territorio</label><select id="territorio" class="form-control" required></select></div>
+        <div class="form-group"><label>Microterritorio</label><select id="microterritorio" class="form-control" required></select></div>
+        <div class="form-group"><label>Código Familia</label><input type="text" id="codigo_familia" class="form-control" pattern="^F\d{4}$" maxlength="5" placeholder="Ej: F0001" required></div>
+        <div class="form-group"><label>Municipio / Vereda</label><input type="text" id="municipio" class="form-control" value="Villavicencio" required></div>
+        <div class="form-group"><label>Barrio / Sector</label><input type="text" id="barrio" class="form-control" required></div>
+        <div class="form-group"><label>Dirección / Finca</label><input type="text" id="direccion" class="form-control" required></div>
+        
+        <!-- GEOLOCALIZACIÓN -->
+        <div class="form-group" style="grid-column: 1 / -1; background: #f0f9ff; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd;">
+            <label style="color: #0369a1;"><i class="fas fa-map-marker-alt"></i> Geolocalización GPS (Obligatorio)</label>
+            <div style="display:flex; gap:10px; margin-top: 5px;">
+                <button type="button" id="btn-geo" class="btn-add" style="background:#0284c7;"><i class="fas fa-satellite-dish"></i> Capturar</button>
+                <input type="text" id="latitud" class="form-control" placeholder="Latitud" readonly required style="background:#e0f2fe;">
+                <input type="text" id="longitud" class="form-control" placeholder="Longitud" readonly required style="background:#e0f2fe;">
+            </div>
+        </div>
+
+        <div class="form-group"><label>Nombre Profesional</label><input type="text" id="nombre_profesional" class="form-control" required></div>
+        <div class="form-group"><label>Registro Profesional</label><input type="text" id="reg_profesional" class="form-control" required></div>
+        <div class="form-group"><label>Nombre Jefe de Hogar</label><input type="text" id="nombre_jefe" class="form-control" required></div>
+        <div class="form-group"><label>Doc. Identidad Jefe</label><input type="text" id="doc_identidad" class="form-control" required></div>
+        <div class="form-group"><label>Teléfono Contacto</label><input type="text" id="telefono" class="form-control" required></div>
+        <div class="form-group"><label>Total Integrantes</label><input type="number" id="total_integrantes" class="form-control" required></div>
+        <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
+    </div>
+
+    <div class="section-title">2. Composición Familiar y Tamizaje Inicial</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead>
+                <tr>
+                    <th>No.</th><th>Nombres y Apellidos</th><th>Edad</th><th>EPS</th><th>¿Tos +15 días? (SR)</th><th>Sospecha Crónica (EPOC/Asma)</th><th>¿Menor de 5 años? (Dif/Silb)</th><th>Elim.</th>
+                </tr>
+            </thead>
+            <tbody id="composicion-body"></tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add" id="add-row-btn"><i class="fas fa-plus"></i> Añadir Integrante</button>
+
+    <div class="section-title">3. Identificación de Riesgos Intradomiciliarios</div>
+    <div class="form-grid">
+        <div class="radio-group">
+            <label><strong>Exposición a humo de leña (cocina):</strong></label>
+            <label class="radio-item"><input type="radio" name="r_humo" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_humo" value="NO"> <span>No</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Hacinamiento (>3 personas x habitación):</strong></label>
+            <label class="radio-item"><input type="radio" name="r_hacinamiento" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_hacinamiento" value="NO"> <span>No</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Presencia de alérgenos (polvo/plagas):</strong></label>
+            <label class="radio-item"><input type="radio" name="r_alergenos" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_alergenos" value="NO"> <span>No</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Humedad visible / Mohos en paredes:</strong></label>
+            <label class="radio-item"><input type="radio" name="r_humedad" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_humedad" value="NO"> <span>No</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Tabaquismo activo o pasivo en hogar:</strong></label>
+            <label class="radio-item"><input type="radio" name="r_tabaquismo" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_tabaquismo" value="NO"> <span>No</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Ventilación deficiente en áreas comunes:</strong></label>
+            <label class="radio-item"><input type="radio" name="r_ventilacion" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="r_ventilacion" value="NO"> <span>No</span></label>
+        </div>
+    </div>
+    <div class="form-group" style="margin-top: 15px;">
+        <label>Observaciones del Entorno Físico:</label>
+        <textarea id="obs_entorno" class="form-control" rows="2" maxlength="500"></textarea>
+    </div>
+
+    <div class="section-title">4. Acciones de Información y Educación Familiar</div>
+    <div style="background: #f8fafc; padding: 20px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px;">
+        <h4 style="margin-top: 0; color: var(--navy); border-bottom: 1px solid var(--border); padding-bottom: 10px;">A. Prevención de la ERA y Signos de Alarma</h4>
+        <div class="form-grid">
+            <div class="radio-group">
+                <label><strong>¿Se realizó la intervención educativa?</strong></label>
+                <label class="radio-item"><input type="radio" name="edu_era_realizado" value="SI" required> <span>Sí</span></label>
+                <label class="radio-item"><input type="radio" name="edu_era_realizado" value="NO"> <span>No</span></label>
+            </div>
+            <div class="radio-group">
+                <label><strong>Nivel de Comprensión del Cuidador:</strong></label>
+                <label class="radio-item"><input type="radio" name="edu_era_nivel" value="Alto" required> <span>Alto</span></label>
+                <label class="radio-item"><input type="radio" name="edu_era_nivel" value="Medio"> <span>Medio</span></label>
+                <label class="radio-item"><input type="radio" name="edu_era_nivel" value="Bajo"> <span>Bajo</span></label>
+            </div>
+        </div>
+
+        <h4 style="margin-top: 25px; color: var(--navy); border-bottom: 1px solid var(--border); padding-bottom: 10px;">B. Técnica Correcta de Inhaladores y Uso de Inhalocámara</h4>
+        <div class="form-grid">
+            <div class="radio-group">
+                <label><strong>¿Se realizó la intervención educativa?</strong></label>
+                <label class="radio-item"><input type="radio" name="edu_inhalador_realizado" value="SI" required> <span>Sí</span></label>
+                <label class="radio-item"><input type="radio" name="edu_inhalador_realizado" value="NO"> <span>No</span></label>
+            </div>
+            <div class="radio-group">
+                <label><strong>Nivel de Comprensión del Cuidador:</strong></label>
+                <label class="radio-item"><input type="radio" name="edu_inhalador_nivel" value="Alto" required> <span>Alto</span></label>
+                <label class="radio-item"><input type="radio" name="edu_inhalador_nivel" value="Medio"> <span>Medio</span></label>
+                <label class="radio-item"><input type="radio" name="edu_inhalador_nivel" value="Bajo"> <span>Bajo</span></label>
+            </div>
+        </div>
+    </div>
+    <div class="form-group" style="margin-top: 15px;"><label>Observaciones de Educación:</label><textarea id="obs_educacion" class="form-control" rows="2" maxlength="500"></textarea></div>
+
+    <div class="section-title">5. Seguimiento Estricto a Casos Activos (Niños con ERA)</div>
+    <div style="padding: 15px; border: 2px dashed #00b09b; border-radius: 8px; background: #ebfcf9;">
+        <p style="font-size: 0.85rem; font-weight: 600; color: #059669; margin-top: 0;">* Diligenciar ÚNICAMENTE si en la vivienda habita un menor de 5 años con cuadro activo de ERA.</p>
+        <div class="form-grid" style="margin-top: 15px;">
+            <div class="form-group"><label>Nombre del Menor</label><input type="text" id="seg_nombre" class="form-control"></div>
+            <div class="form-group"><label>Edad (Meses)</label><input type="number" id="seg_edad" class="form-control"></div>
+        </div>
+        <div class="form-grid" style="margin-top: 15px;">
+            <div class="radio-group">
+                <label><strong>Estado Actual de Salud:</strong></label>
+                <label class="radio-item"><input type="radio" name="seg_estado" value="Estable"> <span>Estable</span></label>
+                <label class="radio-item"><input type="radio" name="seg_estado" value="Sintomático persistente"> <span>Sintomático persistente</span></label>
+                <label class="radio-item"><input type="radio" name="seg_estado" value="Con signos de alarma"> <span>Con signos de alarma</span></label>
+            </div>
+            <div class="radio-group">
+                <label><strong>Gestión de Articulación:</strong></label>
+                <label class="radio-item"><input type="radio" name="seg_gestion" value="No requirió"> <span>No requirió</span></label>
+                <label class="radio-item"><input type="radio" name="seg_gestion" value="Consulta prioritaria"> <span>Direccionamiento prioritario</span></label>
+                <label class="radio-item"><input type="radio" name="seg_gestion" value="Reporte directo"> <span>Reporte directo Urgencias</span></label>
+            </div>
+        </div>
+        <div class="form-group" style="margin-top: 15px;"><label>IPS / EPS donde se articuló:</label><input type="text" id="seg_ips" class="form-control"></div>
+        <div class="form-group" style="margin-top: 15px;"><label>Observación / Compromiso:</label><textarea id="seg_observacion" class="form-control" rows="2" maxlength="500"></textarea></div>
+    </div>
+
+    <!-- Archivos de Evidencia -->
+    <div class="section-title">Anexos y Evidencias Digitales</div>
+    <div class="form-group" style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed var(--teal);">
+        <label>Cargar Archivos de Evidencia (Máximo 5 - Imágenes/PDF):</label>
+        <input type="file" id="evidencia-file" class="form-control" accept="image/*,application/pdf" multiple>
+    </div>
+
+    <div class="signatures-grid" style="margin-top: 30px;">
+        <div class="signature-box">
+            <label>Firma Profesional T.R.</label>
+            <canvas id="canvas-profesional" class="signature-pad"></canvas>
+            <button type="button" id="clear-profesional" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;"><label>C.C. Profesional</label><input type="text" id="cc_profesional" class="form-control" required></div>
+        </div>
+        <div class="signature-box">
+            <label>Firma Representante / Cuidador</label>
+            <canvas id="canvas-cuidador" class="signature-pad"></canvas>
+            <button type="button" id="clear-cuidador" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;"><label>C.C. Jefe / Cuidador</label><input type="text" id="cc_cuidador" class="form-control" required></div>
+        </div>
+    </div>
+
+    <button type="submit" class="submit-btn"><i class="fas fa-save"></i> Guardar y Generar Registro</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/respiratoria.js" defer></script>
+{% endblock %}

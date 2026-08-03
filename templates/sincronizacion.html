@@ -1,0 +1,60 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Sincronización · APS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sync-dashboard { display: grid; gap: 20px; }
+    .sync-header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    .sync-stats { display: flex; gap: 20px; }
+    .stat-badge { background: #f0f9ff; border: 1px solid #bae6fd; padding: 10px 15px; border-radius: 6px; color: #0369a1; font-weight: bold; text-align: center;}
+    .stat-badge h3 { margin: 0; font-size: 1.5rem; color: #0284c7; }
+    .btn-sync-all { background: var(--teal); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
+    .btn-sync-all:hover { background: #0b806d; }
+    .btn-sync-all:disabled { background: #9ca3af; cursor: not-allowed; }
+    
+    .sync-list { display: flex; flex-direction: column; gap: 10px; }
+    .sync-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); border-left: 5px solid #eab308; }
+    .sync-item.success { border-left-color: #16a34a; }
+    .sync-item.error { border-left-color: #dc2626; }
+    
+    .item-info h4 { margin: 0 0 5px 0; color: var(--navy); }
+    .item-info p { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+    .item-actions { display: flex; gap: 10px; align-items: center;}
+    
+    .badge-module { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .bg-nutricion { background: #dcfce7; color: #166534; }
+    .bg-respiratoria { background: #e0e7ff; color: #075985; }
+    .bg-fisioterapia { background: #f3e8ff; color: #3730a3; }
+    
+    .btn-delete { background: #fee2e2; color: #991b1b; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; }
+</style>
+{% endblock %}
+
+{% block header_title %}SINCRONIZACIÓN OFFLINE{% endblock %}
+
+{% block content %}
+<div class="sync-dashboard">
+    <div class="sync-header">
+        <div>
+            <h3 style="margin-top:0; color:var(--navy);">Panel de Control Offline</h3>
+            <p style="margin:0; color:var(--text-muted); font-size:0.9rem;">Revise y sincronice los formularios recolectados en campo sin cobertura de red.</p>
+        </div>
+        <div class="sync-stats">
+            <div class="stat-badge">
+                <h3 id="total-pending">0</h3>
+                <span>Formularios Pendientes</span>
+            </div>
+            <button id="btn-sync-all" class="btn-sync-all"><i class="fas fa-cloud-upload-alt"></i> Sincronizar Todo a la Nube</button>
+        </div>
+    </div>
+
+    <div id="sync-container" class="sync-list">
+        <!-- Tarjetas dinámicas inyectadas por JS -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/sincronizacion.js" defer></script>
+{% endblock %}

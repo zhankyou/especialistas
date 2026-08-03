@@ -1,0 +1,91 @@
+app/
+├── .env
+├── app.py
+├── requirements.txt
+├── wsgi.py
+├── init_db.py
+├── render.yaml
+├── config/
+│   ├── __init__.py
+│   └── settings.py
+├── src/
+│   ├── __init__.py
+│   ├── utils/
+│   │   └── auth_utils.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user_model.py
+│   │   ├── especialista_model.py
+│   │   ├── nutricion_model.py
+│   │   ├── respiratoria_model.py
+│   │   └── fisioterapia_model.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── auth_service.py
+│   │   ├── drive_service.py
+│   │   ├── pdf_service.py
+│   │   ├── nutricion_service.py
+│   │   ├── respiratoria_service.py
+│   │   ├── fisioterapia_service.py
+│   │   ├── registros_service.py
+│   │   ├── usuarios_service.py
+│   │   ├── email_service.py
+│   │   └── telegram_service.py
+│   └──  controllers/
+│       ├── __init__.py
+│       ├── auth_controller.py
+│       ├── nutricion_controller.py
+│       ├── respiratoria_controller.py
+│       ├── fisioterapia_controller.py
+│       ├── sync_controller.py
+│       ├── registros_controller.py
+│       ├── usuarios_controller.py
+│       ├── pwa_controller.py
+│       └── health_controller.py
+├── scripts/
+│  ├── __init__.py
+│  ├── setup_databases.py
+│  ├── seed_user.py
+│  ├──  seed_admin.py
+│  └── patch_db.py
+├── static/
+│   ├── manifest.json
+│   ├── sw.js
+│   ├── css/
+│   │   ├── global.css
+│   │   ├── login.css
+│   │   ├── dashboard.css
+│   │   ├── nutricion.css
+│   │   ├── custom_alerts.css
+│   │   ├── cards.css
+│   │   └── global.css
+│   ├── js/
+│   │   ├── login.js
+│   │   ├── dashboard.js
+│   │   ├── nutricion.js
+│   │   ├── sw.js
+│   │   ├── layout.js
+│   │   ├── respiratoria.js
+│   │   ├── fisioterapia.js
+│   │   ├── registros.js
+│   │   ├── usuarios.js
+│   │   ├── custom_alerts.js
+│   │   └── layout.js
+│   └── img/
+│       ├── logo-ese.png
+│       └── logo-aps.png
+└── templates/
+    ├── login.html
+    ├── base_layout.html
+    ├── usuarios.html
+    ├── nuevo_registro.html
+    ├── nutricion.html
+    ├── respiratoria.html
+    ├── fisioterapia.html
+    ├── sincronizacion.html
+    ├── registros.html
+    ├── layout.html
+    └── pdf/
+        ├── nutricion_pdf.html
+        ├── respiratoria_pdf.html
+        └── fisioterapia_pdf.html

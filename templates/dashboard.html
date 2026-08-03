@@ -1,0 +1,39 @@
+<!-- ARQUITECTURA JINJA2: Extension estricta del layout maestro -->
+{% extends "layout.html" %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <h3 style="color: var(--navy); font-size: 1.5rem; margin-top:0;">Bienvenido al Sistema de Informacion APS</h3>
+    <p style="color: var(--text-muted);">Empresa Social del Estado - Monitoreo de actividad extramural y carga transaccional.</p>
+</div>
+
+<div class="cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+
+    <div style="background: white; padding: 25px; border-radius: 8px; border: 1px solid var(--border); border-top: 4px solid var(--teal); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0; color: var(--navy); font-size: 1.1rem;">Registros Pendientes</h4>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: var(--text-muted);">Por Sincronizar (Offline)</p>
+            </div>
+            <i class="fas fa-sync fa-2x" style="color: #eab308;"></i>
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="/sincronizacion" style="text-decoration: none; color: var(--teal); font-weight: bold; font-size: 0.9rem;"><i class="fas fa-arrow-right"></i> Ir a Bandeja de Sincronizacion</a>
+        </div>
+    </div>
+
+    <div style="background: white; padding: 25px; border-radius: 8px; border: 1px solid var(--border); border-top: 4px solid var(--navy); box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0; color: var(--navy); font-size: 1.1rem;">Nuevo Ingreso</h4>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: var(--text-muted);">Captura en campo</p>
+            </div>
+            <i class="fas fa-file-medical fa-2x" style="color: var(--navy);"></i>
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="/nuevo_registro" style="text-decoration: none; color: var(--teal); font-weight: bold; font-size: 0.9rem;"><i class="fas fa-arrow-right"></i> Iniciar Recoleccion</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{
+  "name": "APS ESE 2026 - Especialistas",
+  "short_name": "APS 2026",
+  "description": "Plataforma de Auditoria y Gestion Clinica APS",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/img/logo-aps.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/logo-ese.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

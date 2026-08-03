@@ -1,0 +1,229 @@
+:root {
+    --sidebar-width: 260px;
+    --header-height: 70px;
+    --bg-main: #f4f7fa;
+    --navy: #0a1f3d;
+    --teal: #00b09b;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text-dark: #1e293b;
+    --text-muted: #64748b;
+    --error: #e74c3c;
+}
+
+body {
+    background-color: var(--bg-main);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    margin: 0;
+    font-family: 'Sora', sans-serif;
+}
+
+.dashboard-container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    position: relative;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 31, 61, 0.6);
+    z-index: 90;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--navy);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+    z-index: 100;
+}
+
+.sidebar-header {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 20px 0;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.sidebar-menu li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--border);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-menu li a:hover, .sidebar-menu li.active a {
+    background-color: rgba(0, 176, 155, 0.15);
+    color: var(--teal);
+    border-left: 4px solid var(--teal);
+}
+
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+    background-color: var(--bg-main);
+}
+
+.top-navbar {
+    height: var(--header-height);
+    min-height: var(--header-height);
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    z-index: 10;
+}
+
+.navbar-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.mobile-toggle-btn {
+    display: none !important;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: none;
+    font-size: 1.4rem;
+    color: var(--navy);
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.2s;
+    outline: none;
+}
+
+.mobile-toggle-btn:hover {
+    color: var(--teal);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info span {
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--error);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-logout:hover {
+    background-color: #fadbd8;
+}
+
+.content-body {
+    padding: 30px;
+    flex-grow: 1;
+}
+
+.welcome-card {
+    background: var(--surface);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+}
+
+.welcome-card h3 {
+    color: var(--navy);
+    font-size: 1.3rem;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.welcome-card p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/*
+ * ARQUITECTURA RESPONSIVE:
+ * Se aumenta el breakpoint a 1024px para cubrir iPads y tablets en modo vertical/horizontal.
+ * Se fuerza el display: flex en el boton para evitar corrupcion de alineacion.
+ */
+@media (max-width: 1024px) {
+    .mobile-toggle-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .top-navbar {
+        padding: 0 15px;
+    }
+
+    .sidebar {
+        position: fixed;
+        height: 100%;
+        transform: translateX(-100%);
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+        opacity: 1;
+    }
+
+    .user-info span {
+        display: none;
+    }
+}

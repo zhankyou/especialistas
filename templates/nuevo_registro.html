@@ -1,0 +1,47 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Selección de Formulario · APS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/cards.css">
+{% endblock %}
+
+{% block header_title %}MÓDULO DE VALORACIÓN{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 25px;">
+    <h3 style="color: var(--navy); font-size: 1.5rem; margin-top:0;">Seleccione la Especialidad a Intervenir</h3>
+    <p style="color: var(--text-muted);">Elija el formulario correspondiente para iniciar la recolección de datos familiares en campo.</p>
+</div>
+
+<div class="cards-grid">
+    
+    <!-- Tarjeta 1: Nutrición -->
+    <a href="/nutricion" class="form-card" style="background-image: url('https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&q=80');">
+        <div class="card-overlay">
+            <div class="card-icon"><i class="fas fa-apple-alt"></i></div>
+            <h3>FORMULARIO VALORACIÓN NUTRICIONAL APS</h3>
+            <p>Evaluación antropométrica y análisis integral de la seguridad alimentaria del grupo familiar.</p>
+        </div>
+    </a>
+
+    <!-- Tarjeta 2: Terapia Respiratoria -->
+    <a href="/respiratoria" class="form-card" style="background-image: url('https://images.unsplash.com/photo-1584036561566-baf8f5f1b144?auto=format&fit=crop&w=800&q=80');">
+        <div class="card-overlay">
+            <div class="card-icon"><i class="fas fa-lungs"></i></div>
+            <h3>FORMULARIO VALORACIÓN TERAPIA RESPIRATORIA</h3>
+            <p>Diagnóstico, intervención y seguimiento de afecciones pulmonares y respiratorias crónicas.</p>
+        </div>
+    </a>
+
+    <!-- Tarjeta 3: Fisioterapia -->
+    <a href="/fisioterapia" class="form-card" style="background-image: url('https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80');">
+        <div class="card-overlay">
+            <div class="card-icon"><i class="fas fa-walking"></i></div>
+            <h3>FORMULARIO VALORACIÓN FISIOTERAPIA</h3>
+            <p>Rehabilitación física, evaluación de movilidad articular y promoción del desarrollo motor.</p>
+        </div>
+    </a>
+
+</div>
+{% endblock %}

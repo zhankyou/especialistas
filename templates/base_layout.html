@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}APS ESE{% endblock %}</title>
+
+    <script>
+        (function() {
+            const currentPath = window.location.pathname;
+            const token = localStorage.getItem('token');
+            const rol = localStorage.getItem('rol');
+
+            // 1. Prevención de Acceso Directo (Unauthenticated Route Guard)
+            if (!token && currentPath !== '/login' && currentPath !== '/') {
+                window.location.replace('/login');
+                return;
+            }
+
+            // 2. Control de Acceso Basado en Roles (RBAC Frontend Guard)
+            if (currentPath === '/usuarios' && rol === 'DILIGENCIADOR') {
+                window.location.replace('/dashboard');
+                return;
+            }
+        })();
+    </script>
+
+    <!-- Dependencias Universales -->
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/global.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="/static/css/custom_alerts.css">
+    <script src="/static/js/custom_alerts.js"></script>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="dashboard-container">
+
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>INFORME APS</h2>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li class="{% if request.path == '/dashboard' %}active{% endif %}">
+                    <a href="/dashboard"><i class="fas fa-home"></i> Inicio</a>
+                </li>
+                <li class="{% if request.path == '/nuevo_registro' or request.path in ['/nutricion', '/respiratoria', '/fisioterapia'] %}active{% endif %}">
+                    <a href="/nuevo_registro"><i class="fas fa-file-medical"></i> Nuevo Registro APS</a>
+                </li>
+                <li class="{% if request.path == '/sincronizacion' %}active{% endif %}">
+                    <a href="/sincronizacion"><i class="fas fa-sync"></i> Sincronización Offline</a>
+                </li>
+                <li class="{% if request.path == '/registros' %}active{% endif %}">
+                    <a href="/registros"><i class="fas fa-database"></i> Gestor de Expedientes</a>
+                </li>
+
+                <!-- ARQUITECTURA IAM: Oculto por defecto para evitar destellos visuales (FOUC) -->
+                <li id="menu-iam" class="{% if request.path == '/usuarios' %}active{% endif %}" style="display: none;">
+                    <a href="/usuarios"><i class="fas fa-users-cog"></i> Administración de Cuentas</a>
+                </li>
+            </ul>
+        </aside>
+
+        <div class="main-content">
+            <header class="top-navbar">
+                <div class="navbar-left">
+                    <button id="sidebar-toggle" class="mobile-toggle-btn" aria-label="Alternar menú">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 style="font-size: 1.1rem; color: var(--navy); font-weight: 700; margin-left: 10px; margin-top:0; margin-bottom:0;">
+                        {% block header_title %}MÓDULO APS{% endblock %}
+                    </h2>
+                </div>
+
+                <div class="navbar-left" style="display: flex; align-items: center;">
+
+                    <div id="offline-indicator" style="display:none; color:#eab308; background:#fef08a; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; margin-right:10px;">
+                        <i class="fas fa-wifi-slash"></i> MODO OFFLINE
+                    </div>
+                    <div class="user-info">
+                        <i class="fas fa-user-md fa-lg" style="color: var(--teal);"></i>
+                        <span id="user-display-email">Cargando credenciales...</span>
+                    </div>
+                    <button class="btn-logout" id="btn-logout">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-body">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- ARQUITECTURA PWA: Registro del Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('[SW] Service Worker Registrado - Scope:', reg.scope))
+                    .catch(err => console.error('[SW] Fallo registro de Service Worker:', err));
+            });
+        }
+    </script>
+
+    <script src="/static/js/layout.js" defer></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

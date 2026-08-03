@@ -1,0 +1,141 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Nutrición · APS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/nutricion.css">
+{% endblock %}
+
+{% block header_title %}VALORACIÓN NUTRICIONAL APS{% endblock %}
+
+{% block content %}
+<form id="nutricion-form" class="form-container">
+    
+    <div class="section-title">1. Datos Generales de la Visita e Identificación (Estandarizado)</div>
+    <div class="form-grid">
+        <div class="form-group"><label>Fecha de Visita</label><input type="date" id="fecha_visita" class="form-control" required></div>
+        <div class="form-group"><label>Territorio</label><select id="territorio" class="form-control" required></select></div>
+        <div class="form-group"><label>Microterritorio</label><select id="microterritorio" class="form-control" required></select></div>
+        <div class="form-group"><label>Código Familia</label><input type="text" id="codigo_familia" class="form-control" pattern="^F\d{4}$" maxlength="5" placeholder="Ej: F0001" required></div>
+        <div class="form-group"><label>Municipio / Vereda</label><input type="text" id="municipio" class="form-control" value="Villavicencio" required></div>
+        <div class="form-group"><label>Barrio / Sector</label><input type="text" id="barrio" class="form-control" required></div>
+        <div class="form-group"><label>Dirección / Finca</label><input type="text" id="direccion" class="form-control" required></div>
+        
+        <div class="form-group" style="grid-column: 1 / -1; background: #f0f9ff; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd;">
+            <label style="color: #0369a1;"><i class="fas fa-map-marker-alt"></i> Geolocalización GPS (Obligatorio)</label>
+            <div style="display:flex; gap:10px; margin-top: 5px;">
+                <button type="button" id="btn-geo" class="btn-add" style="background:#0284c7;"><i class="fas fa-satellite-dish"></i> Capturar</button>
+                <input type="text" id="latitud" class="form-control" placeholder="Latitud" readonly required style="background:#e0f2fe;">
+                <input type="text" id="longitud" class="form-control" placeholder="Longitud" readonly required style="background:#e0f2fe;">
+            </div>
+        </div>
+
+        <div class="form-group"><label>Nombre Nutricionista</label><input type="text" id="nombre_nutricionista" class="form-control" required></div>
+        <div class="form-group"><label>Registro Profesional</label><input type="text" id="reg_profesional" class="form-control" required></div>
+        <div class="form-group"><label>Nombre Jefe de Hogar</label><input type="text" id="nombre_jefe" class="form-control" required></div>
+        <div class="form-group"><label>Doc. Identidad Jefe</label><input type="text" id="doc_identidad" class="form-control" required></div>
+        <div class="form-group"><label>Teléfono Contacto</label><input type="text" id="telefono" class="form-control" required></div>
+        <div class="form-group"><label>Total Integrantes</label><input type="number" id="total_integrantes" class="form-control" required></div>
+        <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
+    </div>
+
+    <div class="section-title">2. Valoración Antropométrica y Diagnóstico</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead>
+                <tr>
+                    <th>No.</th><th>Nombres y Apellidos</th><th>Condición</th><th>Peso (kg)</th><th>Talla (cm)</th><th>PB (cm)</th><th>Diagnóstico Nutricional</th><th>EPS</th><th>Elim.</th>
+                </tr>
+            </thead>
+            <tbody id="antropometria-body"></tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add" id="add-row-btn"><i class="fas fa-plus"></i> Añadir Integrante</button>
+
+    <div class="section-title">3. Análisis de la Seguridad Alimentaria Familiar</div>
+    <div class="form-grid">
+        <div class="radio-group">
+            <label><strong>Acceso y Disponibilidad:</strong></label>
+            <label class="radio-item"><input type="radio" name="acc_disp" value="Estable" required> <span>Estable</span></label>
+            <label class="radio-item"><input type="radio" name="acc_disp" value="Inestabilidad Crítica"> <span>Inestabilidad Crítica</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>Consumo Real en el Hogar:</strong></label>
+            <label class="radio-item"><input type="radio" name="consumo" value="Balanceada / LME" required> <span>Balanceada / LME</span></label>
+            <label class="radio-item"><input type="radio" name="consumo" value="Monotonía"> <span>Monotonía Alimentaria</span></label>
+            <label class="radio-item"><input type="radio" name="consumo" value="Prácticas Inadecuadas"> <span>Prácticas inadecuadas</span></label>
+        </div>
+        <div class="radio-group">
+            <label><strong>¿Dejó de comer por falta de dinero? (HFIAS):</strong></label>
+            <label class="radio-item"><input type="radio" name="hfias" value="SI" required> <span>Sí</span></label>
+            <label class="radio-item"><input type="radio" name="hfias" value="NO"> <span>No</span></label>
+        </div>
+    </div>
+
+    <div class="section-title">4. Plan Integral de Cuidado Primario</div>
+    <div class="checkbox-group">
+        <label class="radio-item"><input type="checkbox" name="lineas_accion" value="Educación LME"> <span>Educación en LME / Complementaria Adecuada.</span></label>
+        <label class="radio-item"><input type="checkbox" name="lineas_accion" value="Higiene Alimentos"> <span>Pautas de higiene (Agua segura)</span></label>
+        <label class="radio-item"><input type="checkbox" name="lineas_accion" value="Remisión Prioritaria"> <span>Canalización o remisión prioritaria</span></label>
+    </div>
+    <div class="form-group"><label>Otra línea de acción:</label><input type="text" id="lineas_otra" class="form-control" maxlength="500"></div>
+    <div class="form-group" style="margin-top: 15px;"><label>Compromiso Familiar / Plan Acordado:</label><textarea id="compromiso" class="form-control" rows="3" maxlength="500"></textarea></div>
+
+    <div class="section-title">5. Seguimiento y Evidencias</div>
+    <div class="form-grid">
+        <div class="checkbox-group">
+            <label><strong>Gestión de Articulación:</strong></label>
+            <label class="radio-item"><input type="checkbox" name="gestion_art" value="Reporte EPS"> <span>Reporte directo a EPS/IPS</span></label>
+            <label class="radio-item"><input type="checkbox" name="gestion_art" value="Complementos"> <span>Gestión de complementos</span></label>
+            <label class="radio-item"><input type="checkbox" name="gestion_art" value="Red Urgencias"> <span>Articulación con Red de urgencias</span></label>
+        </div>
+        <div class="checkbox-group">
+            <label><strong>Soportes de Evidencia:</strong></label>
+            <label class="radio-item"><input type="checkbox" name="soportes" value="Correo"> <span>Captura de correo o radicado EPS</span></label>
+            <label class="radio-item"><input type="checkbox" name="soportes" value="Colilla"> <span>Colilla de entrega/fórmula nutricional</span></label>
+            <label class="radio-item"><input type="checkbox" name="soportes" value="Acta"> <span>Acta de compromiso firmada cuidador</span></label>
+        </div>
+    </div>
+    
+    <div class="form-group" style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed var(--teal);">
+        <label>Cargar Archivos de Evidencia (Máximo 5 - Imágenes/PDF):</label>
+        <input type="file" id="evidencia-file" class="form-control" accept="image/*,application/pdf" multiple>
+    </div>
+
+    <div class="radio-group" style="margin-top: 20px;">
+        <label><strong>¿REMITE PACIENTE?</strong></label>
+        <div style="display: flex; gap: 20px;">
+            <label class="radio-item"><input type="radio" name="remite" value="SI" required> <span>SÍ</span></label>
+            <label class="radio-item"><input type="radio" name="remite" value="NO"> <span>NO</span></label>
+        </div>
+    </div>
+
+    <!-- CORRECCIÓN UI: Restauración de los botones de limpieza y captura C.C. -->
+    <div class="signatures-grid" style="margin-top: 30px;">
+        <div class="signature-box">
+            <label>Firma Profesional Nutrición</label>
+            <canvas id="canvas-profesional" class="signature-pad"></canvas>
+            <button type="button" id="clear-profesional" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;">
+                <label>C.C. Profesional</label>
+                <input type="text" id="cc_profesional" class="form-control" required>
+            </div>
+        </div>
+        <div class="signature-box">
+            <label>Firma Representante / Cuidador</label>
+            <canvas id="canvas-cuidador" class="signature-pad"></canvas>
+            <button type="button" id="clear-cuidador" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;">
+                <label>C.C. Jefe / Cuidador</label>
+                <input type="text" id="cc_cuidador" class="form-control" required>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="submit-btn"><i class="fas fa-save"></i> Guardar y Generar Registro</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/nutricion.js" defer></script>
+{% endblock %}

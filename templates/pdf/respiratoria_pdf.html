@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: letter portrait; margin: 1.2cm 1.5cm 2cm 1.5cm; @frame footer_frame { -pdf-frame-content: footer_content; left: 50pt; width: 512pt; top: 750pt; height: 30pt; } }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #2c3e50; }
+        .m-0 { margin: 0; padding: 0; } .lh-1 { line-height: 1; }
+        .color-royal { color: #0033a0; } .bg-royal { background-color: #0033a0; color: #ffffff; }
+        .header-table { width: 100%; border-bottom: 3px solid #0033a0; padding-bottom: 5px; margin-bottom: 12px; }
+        .header-table td { vertical-align: middle; border: none; padding: 0; }
+        .header-center { text-align: center; }
+        .header-center h1 { font-size: 13pt; font-weight: bold; margin: 0 0 2px 0; line-height: 1; color: #0033a0; }
+        .header-center p { font-size: 8pt; font-weight: bold; margin: 0; line-height: 1; color: #444444; }
+        .logo-aps { width: 95px; height: auto; } .logo-ese { width: 38px; height: auto; }
+        .section-title { background-color: #0033a0; color: #ffffff; font-size: 10pt; font-weight: bold; padding: 4px 8px; margin-top: 10px; margin-bottom: 6px; text-transform: uppercase; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .info-table td { border: 1px solid #c2c9d6; padding: 5px 6px; font-size: 8.5pt; vertical-align: middle; }
+        .info-label { background-color: #ecf0f1; color: #0033a0; font-weight: bold; width: 25%; }
+        .info-value { color: #222222; }
+        .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .grid-table th { background-color: #0033a0; color: #ffffff; padding: 5px; font-size: 8pt; font-weight: bold; text-align: center; border: 1px solid #0033a0;}
+        .grid-table td { border: 1px solid #c2c9d6; padding: 5px; font-size: 8.5pt; text-align: center; color: #222222;}
+        .signatures { width: 100%; margin-top: 25px; border: none; page-break-inside: avoid; }
+        .signatures td { border: none; text-align: center; width: 50%; vertical-align: bottom; }
+        .signature-img { width: 130px; height: 65px; margin-bottom: 2px; }
+        .signature-line { border-top: 1px solid #333333; width: 80%; margin: 0 auto; padding-top: 4px; font-weight: bold; font-size: 8pt; color: #0033a0;}
+        .footer-text { text-align: center; font-size: 7.5pt; color: #777777; border-top: 1px solid #dddddd; padding-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="footer_content">
+        <div class="footer-text">
+            Documento Electrónico Inalterable - Generado por Plataforma APS - Empresa Social del Estado<br>
+            ID Transacción: {{ data.id }} | Sellado en Nube: {{ data.created_at }}
+        </div>
+    </div>
+
+    <table class="header-table">
+        <tr>
+            <td width="20%" style="text-align: left;">
+                {% if data.logo_aps %}<img src="{{ data.logo_aps }}" class="logo-aps">{% else %}<h2 class="color-royal m-0">APS</h2>{% endif %}
+            </td>
+            <td width="60%" class="header-center">
+                <h1>EMPRESA SOCIAL DEL ESTADO</h1>
+                <p>Carrera 42 No. 32 /06</p>
+                <p>NIT. 822.002.459-8</p>
+                <p style="margin-top: 6px; font-size: 9.5pt; color: #0033a0;">VALORACIÓN EN TERAPIA RESPIRATORIA Y MANEJO DE ERA</p>
+            </td>
+            <td width="20%" style="text-align: right;">
+                {% if data.logo_ese %}<img src="{{ data.logo_ese }}" class="logo-ese">{% else %}<h2 class="color-royal m-0">ESE</h2>{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-title">1. DATOS GENERALES DE IDENTIFICACIÓN</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 15%;">Fecha de Visita</td><td class="info-value" style="width: 35%;">{{ data.fecha_visita }}</td>
+            <td class="info-label" style="width: 15%;">Código Familia</td><td class="info-value" style="width: 35%;">{{ data.codigo_familia|default('F0000', true) }} (Visita No. {{ data.familia_visita_no|default('01', true) }})</td>
+        </tr>
+        <tr>
+            <td class="info-label">Territorio</td><td class="info-value">{{ data.territorio|default('N/A', true) }} / {{ data.microterritorio|default('N/A', true) }}</td>
+            <td class="info-label">Dirección</td><td class="info-value">{{ data.direccion|default('N/A', true) }}, Barrio: {{ data.barrio|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Geolocalización GPS</td>
+            <td colspan="3" class="info-value" style="color: #0369a1; font-family: monospace;">
+                Latitud: {{ data.latitud|default('0.000000', true) }} | Longitud: {{ data.longitud|default('0.000000', true) }}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Profesional a Cargo</td><td class="info-value">{{ data.nombre_profesional|default('N/A', true) }} (RP: {{ data.registro_profesional|default('N/A', true) }})</td>
+            <td class="info-label">Jefe de Hogar</td><td class="info-value">{{ data.nombre_jefe_hogar|default('N/A', true) }} (CC: {{ data.doc_identidad|default('N/A', true) }})</td>
+        </tr>
+        <tr>
+            <td class="info-label">Teléfono Contacto</td><td class="info-value">{{ data.telefono_contacto|default('N/A', true) }}</td>
+            <td class="info-label">Total Integrantes</td><td class="info-value">{{ data.total_integrantes|default('1', true) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">2. COMPOSICIÓN FAMILIAR Y TAMIZAJE INICIAL</div>
+    <table class="grid-table">
+        <tr>
+            <th style="width: 30%;">Nombres y Apellidos</th>
+            <th style="width: 10%;">Edad</th>
+            <th style="width: 15%;">EPS</th>
+            <th style="width: 15%;">Tos +15d</th>
+            <th style="width: 15%;">Sospecha EPOC</th>
+            <th style="width: 15%;">&lt;5 años (Silbido)</th>
+        </tr>
+        {% if data.composicion_familiar %}
+            {% for paciente in data.composicion_familiar %}
+            <tr>
+                <td style="text-align: left;">{{ paciente.nombre }}</td>
+                <td>{{ paciente.edad }}</td>
+                <td>{{ paciente.eps }}</td>
+                <td>{{ paciente.sintoma_tos }}</td>
+                <td>{{ paciente.sospecha }}</td>
+                <td>{{ paciente.menor5 }}</td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr><td colspan="6">No se registraron datos en el grupo familiar.</td></tr>
+        {% endif %}
+    </table>
+
+    <div class="section-title">3. IDENTIFICACIÓN DE RIESGOS INTRADOMICILIARIOS</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 35%;">Exposición a humo de leña (cocina)</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.humo }}</td>
+            <td class="info-label" style="width: 35%;">Hacinamiento (>3 personas/hab.)</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.hacinamiento }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Presencia de alérgenos (polvo/plagas)</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.alergenos }}</td>
+            <td class="info-label">Humedad visible / Mohos</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.humedad }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Tabaquismo activo/pasivo</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.tabaquismo }}</td>
+            <td class="info-label">Ventilación deficiente</td>
+            <td class="info-value">{{ data.riesgos_intradomiciliarios.ventilacion }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Observaciones del Entorno</td>
+            <td colspan="3" class="info-value">{{ data.riesgos_intradomiciliarios.observaciones|default('Ninguna', true) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">4. ACCIONES DE INFORMACIÓN Y EDUCACIÓN FAMILIAR</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 40%;">A. Prevención de la ERA y Signos de Alarma</td>
+            <td class="info-value">¿Realizado? <strong>{{ data.acciones_educacion.era_realizado }}</strong> | Nivel de Comprensión: <strong>{{ data.acciones_educacion.era_nivel }}</strong></td>
+        </tr>
+        <tr>
+            <td class="info-label">B. Técnica de Inhaladores / Inhalocámara</td>
+            <td class="info-value">¿Realizado? <strong>{{ data.acciones_educacion.inhalador_realizado }}</strong> | Nivel de Comprensión: <strong>{{ data.acciones_educacion.inhalador_nivel }}</strong></td>
+        </tr>
+        <tr>
+            <td class="info-label">Observaciones de Educación</td>
+            <td colspan="3" class="info-value">{{ data.acciones_educacion.observaciones|default('Ninguna', true) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">5. SEGUIMIENTO ESTRICTO A CASOS ACTIVOS (NIÑOS CON ERA)</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 25%;">Nombre del Menor</td>
+            <td class="info-value" style="width: 25%;">{{ data.seguimiento_era.nombre|default('N/A', true) }}</td>
+            <td class="info-label" style="width: 25%;">Edad (Meses)</td>
+            <td class="info-value" style="width: 25%;">{{ data.seguimiento_era.edad|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Estado Actual de Salud</td>
+            <td colspan="3" class="info-value">{{ data.seguimiento_era.estado|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Gestión de Articulación</td>
+            <td colspan="3" class="info-value">{{ data.seguimiento_era.gestion|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">IPS / EPS de Articulación</td>
+            <td colspan="3" class="info-value">{{ data.seguimiento_era.ips|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Compromiso / Observación</td>
+            <td colspan="3" class="info-value">{{ data.seguimiento_era.observacion|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Evidencias Físicas (Nube)</td>
+            <td colspan="3" class="info-value">Se respaldaron <strong>{{ data.evidencias_drive_urls | length }} archivo(s)</strong> de forma encriptada.</td>
+        </tr>
+    </table>
+
+    <table class="signatures">
+        <tr>
+            <td>
+                {% if data.firma_profesional %}<img src="{{ data.firma_profesional }}" class="signature-img"><br>{% else %}<br><br><br><br>{% endif %}
+                <div class="signature-line">Firma Profesional T.R.</div>
+                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. {{ data.cc_profesional|default('No registrado', true) }}</div>
+            </td>
+            <td>
+                {% if data.firma_cuidador %}<img src="{{ data.firma_cuidador }}" class="signature-img"><br>{% else %}<br><br><br><br>{% endif %}
+                <div class="signature-line">Firma Representante Familiar / Cuidador</div>
+                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. {{ data.cc_cuidador|default('No registrado', true) }}</div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

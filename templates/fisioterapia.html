@@ -1,0 +1,232 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Fisioterapia · APS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/nutricion.css">
+<style>
+    .table-grid { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 20px;}
+    .table-grid-header { display: flex; background: #34495e; color: white; font-weight: bold; font-size: 0.85rem;}
+    .table-grid-row { display: flex; border-bottom: 1px solid var(--border); background: #fdfdfd;}
+    .table-grid-col { padding: 12px; border-right: 1px solid var(--border); flex: 1; display:flex; flex-direction: column; gap:5px; font-size: 0.85rem;}
+    .table-grid-col:last-child { border-right: none; }
+    .table-grid-full { padding: 12px; border-bottom: 1px solid var(--border); width: 100%;}
+
+    /* Utilidad para checkboxes dentro de tablas dinámicas */
+    .table-checkbox-container { display: flex; flex-direction: column; gap: 4px; text-align: left; background: #fdfdfd; padding: 5px; border-radius: 4px; border: 1px solid #eee; }
+    .table-checkbox-item { font-size: 0.8rem; display: flex; align-items: flex-start; gap: 5px; color: #333; }
+    .table-checkbox-item input { margin-top: 2px; }
+</style>
+{% endblock %}
+
+{% block header_title %}VALORACIÓN FISIOTERAPIA APS{% endblock %}
+
+{% block content %}
+<form id="fisio-form" class="form-container">
+
+    <div class="section-title">1. Datos Generales de la Visita e Identificación (Estandarizado)</div>
+    <div class="form-grid">
+        <div class="form-group"><label>Fecha de Visita</label><input type="date" id="fecha_visita" class="form-control" required></div>
+        <div class="form-group"><label>Territorio</label><select id="territorio" class="form-control" required></select></div>
+        <div class="form-group"><label>Microterritorio</label><select id="microterritorio" class="form-control" required></select></div>
+        <div class="form-group">
+            <label>Código Familia</label>
+            <input type="text" id="codigo_familia" class="form-control" pattern="^F\d{4}$" maxlength="5" placeholder="Ej: F0001" title="El código debe iniciar con la letra 'F' mayúscula seguida de 4 números." required>
+        </div>
+        <div class="form-group"><label>Municipio / Vereda</label><input type="text" id="municipio" class="form-control" value="Villavicencio" required></div>
+        <div class="form-group"><label>Barrio / Sector</label><input type="text" id="barrio" class="form-control" required></div>
+        <div class="form-group"><label>Dirección / Finca</label><input type="text" id="direccion" class="form-control" required></div>
+
+        <!-- GEOLOCALIZACIÓN -->
+        <div class="form-group" style="grid-column: 1 / -1; background: #f0f9ff; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd;">
+            <label style="color: #0369a1;"><i class="fas fa-map-marker-alt"></i> Geolocalización GPS (Obligatorio)</label>
+            <div style="display:flex; gap:10px; margin-top: 5px;">
+                <button type="button" id="btn-geo" class="btn-add" style="background:#0284c7;"><i class="fas fa-satellite-dish"></i> Capturar</button>
+                <input type="text" id="latitud" class="form-control" placeholder="Latitud" readonly required style="background:#e0f2fe;">
+                <input type="text" id="longitud" class="form-control" placeholder="Longitud" readonly required style="background:#e0f2fe;">
+            </div>
+        </div>
+
+        <div class="form-group"><label>Nombre Fisioterapeuta</label><input type="text" id="nombre_fisio" class="form-control" required></div>
+        <div class="form-group"><label>Registro Profesional</label><input type="text" id="reg_profesional" class="form-control" required></div>
+        <div class="form-group"><label>Nombre Jefe de Hogar</label><input type="text" id="nombre_jefe" class="form-control" required></div>
+        <div class="form-group"><label>Doc. Identidad Jefe</label><input type="text" id="doc_identidad" class="form-control" required></div>
+        <div class="form-group"><label>Teléfono Contacto</label><input type="text" id="telefono" class="form-control" required></div>
+        <div class="form-group"><label>Total Integrantes</label><input type="number" id="total_integrantes" class="form-control" required></div>
+        <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
+    </div>
+
+    <div class="section-title">2. Tamizaje Motor en Primera Infancia (0 - 5 Años)</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead><tr><th>Nombre Niño/a</th><th>Edad</th><th>Hito Motor Evaluado</th><th>Cumple</th><th>Alerta Temprana</th><th>Acción / Conducta</th><th>Elim.</th></tr></thead>
+            <tbody id="motor-body"></tbody>
+        </table>
+    </div><button type="button" class="btn-add" id="add-motor-btn"><i class="fas fa-plus"></i> Añadir Niño(a)</button>
+
+    <div class="section-title">3. Valoración del Riesgo de Caídas en Adulto Mayor (≥ 60)</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead><tr><th>Nombre AM</th><th>Edad</th><th>TUG (s)</th><th>Unipodal (s)</th><th>Equilibrio</th><th>Historial Caídas</th><th>¿Fractura?</th><th>Clasificación</th><th>Elim.</th></tr></thead>
+            <tbody id="caidas-body"></tbody>
+        </table>
+    </div><button type="button" class="btn-add" id="add-caidas-btn"><i class="fas fa-plus"></i> Añadir AM</button>
+
+    <!-- ARQUITECTURA UI: Sección 4 rediseñada y estandarizada -->
+    <div class="section-title">4. Identificación de Barreras Arquitectónicas</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Área Evaluada</th>
+                    <th style="width: 30%;">Condiciones de Riesgo Detectadas</th>
+                    <th style="width: 15%;">Afecta a (PC/AM/Todos)</th>
+                    <th style="width: 25%;">Recomendación / Adaptación</th>
+                    <th style="width: 5%;">Elim.</th>
+                </tr>
+            </thead>
+            <tbody id="barreras-body"></tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add" id="add-barrera-btn"><i class="fas fa-plus"></i> Añadir Barrera</button>
+
+    <div class="section-title">5. Detección de Factores de Riesgo Ergonómico</div>
+    <div class="table-responsive">
+        <table class="aps-table">
+            <thead><tr><th>Nombre Integrante</th><th>Ocupación</th><th>Factores Identificados</th><th>Sintomatología</th><th>Nivel Riesgo</th><th>Elim.</th></tr></thead>
+            <tbody id="ergo-body"></tbody>
+        </table>
+    </div><button type="button" class="btn-add" id="add-ergo-btn"><i class="fas fa-plus"></i> Añadir Trabajador</button>
+
+    <div class="section-title">6. Acciones de Educación y Canalización</div>
+    <div class="form-grid">
+        <div class="checkbox-group">
+            <label><strong>Temática Impartida:</strong></label>
+            <label><input type="checkbox" name="edu_tema" value="Higiene Postural"> Higiene Postural AVD</label>
+            <label><input type="checkbox" name="edu_tema" value="Ergonomia Cuidadores"> Ergonomía Cuidadores</label>
+            <label><input type="checkbox" name="edu_tema" value="Lesiones Trabajo"> Lesiones Trabajo Informal</label>
+            <label><input type="checkbox" name="edu_tema" value="Prevencion Caidas"> Prevención Caídas</label>
+        </div>
+        <div class="checkbox-group">
+            <label><strong>Herramienta:</strong></label>
+            <label><input type="checkbox" name="edu_herr" value="Practica"> Demostración Práctica</label>
+            <label><input type="checkbox" name="edu_herr" value="Folleto"> Folleto / Cartilla</label>
+            <label><input type="checkbox" name="edu_herr" value="Verbal"> Verbal / Ejercicios</label>
+        </div>
+    </div>
+
+    <div class="section-title">7. Canalización y Activación de Ruta Institucional</div>
+    <div class="table-grid">
+        <div class="table-grid-header">
+            <div class="table-grid-col" style="flex:0.8;">¿Requiere Activación de Ruta?</div>
+            <div class="table-grid-col" style="flex:1.2;">Servicio Requerido:</div>
+            <div class="table-grid-col" style="flex:1;">Prioridad:</div>
+            <div class="table-grid-col" style="flex:1;">EPS:</div>
+        </div>
+        <div class="table-grid-row">
+            <div class="table-grid-col" style="flex:0.8;">
+                <label class="radio-item"><input type="radio" name="can_req" value="SI"> <span>SÍ</span></label>
+                <label class="radio-item"><input type="radio" name="can_req" value="NO" checked> <span>NO</span></label>
+            </div>
+            <div class="table-grid-col" style="flex:1.2;">
+                <label class="radio-item"><input type="checkbox" name="can_serv" value="Ortopedia"> <span>Ortopedia</span></label>
+                <label class="radio-item"><input type="checkbox" name="can_serv" value="Neurologia"> <span>Neurología</span></label>
+                <label class="radio-item"><input type="checkbox" name="can_serv" value="Fisiatria/Rehab"> <span>Fisiatría / Rehab. Integral</span></label>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
+                    <label>Otro:</label><input type="text" id="can_otro" class="form-control" style="padding:4px; font-size:0.8rem;">
+                </div>
+            </div>
+            <div class="table-grid-col" style="flex:1;">
+                <label class="radio-item"><input type="radio" name="can_prio" value="Urgente"> <span>Urgente</span></label>
+                <label class="radio-item"><input type="radio" name="can_prio" value="Prioritaria"> <span>Prioritaria</span></label>
+                <label class="radio-item"><input type="radio" name="can_prio" value="Electiva"> <span>Electiva</span></label>
+            </div>
+            <div class="table-grid-col" style="flex:1;">
+                <input type="text" id="can_eps" class="form-control" placeholder="Escriba aquí">
+            </div>
+        </div>
+        <div class="table-grid-full" style="background:#2c3e50; color:white; font-weight:bold; font-size:0.85rem;">
+            Motivo de Canalización / Diagnóstico Presuntivo Fisioterapéutico:
+        </div>
+        <div class="table-grid-full">
+            <textarea id="can_motivo" class="form-control" rows="2" maxlength="500"></textarea>
+        </div>
+    </div>
+
+    <div class="section-title">8. Síntesis de Análisis Fisioterapéutico y Control de Evidencias</div>
+    <div style="margin-bottom: 15px;">
+        <label style="font-weight:bold; color:var(--navy); font-size:0.9rem;">Diagnóstico / Análisis Funcional del Núcleo Familiar:</label>
+        <div class="checkbox-group" style="margin-top:5px; flex-direction:row; gap:15px; flex-wrap:wrap;">
+            <label class="radio-item"><input type="radio" name="sin_diag" value="Sin Riesgo" required> <span>Familia Sin Riesgo Motor/Ergonómico Significativo</span></label>
+            <label class="radio-item"><input type="radio" name="sin_diag" value="Con Alerta Temprana"> <span>Familia Con Alerta Temprana en Infancia / Adulto Mayor</span></label>
+            <label class="radio-item"><input type="radio" name="sin_diag" value="Alto Riesgo"> <span>Familia Con Alto Riesgo de Caídas / Barreras Severas</span></label>
+        </div>
+        <div style="margin-top: 10px; display:flex; align-items:center; gap:10px;">
+            <label>Detalle / Observaciones:</label>
+            <input type="text" id="sin_diag_det" class="form-control" style="flex:1;">
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <label style="font-weight:bold; color:var(--navy); font-size:0.9rem;">Plan de Seguimiento por EBS:</label>
+        <div class="checkbox-group" style="margin-top:5px; flex-direction:row; gap:15px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <label class="radio-item"><input type="checkbox" name="sin_plan" value="Re-visita"> <span>Re-visita prioritaria en</span></label>
+                <input type="number" id="sin_revisita" class="form-control" style="width:60px; padding:4px;" placeholder="días">
+            </div>
+            <label class="radio-item"><input type="checkbox" name="sin_plan" value="Control"> <span>Control en siguiente ronda EBS</span></label>
+            <label class="radio-item"><input type="checkbox" name="sin_plan" value="Cierre"> <span>Cierre de caso / Mantener pautas IEC</span></label>
+            <label class="radio-item"><input type="checkbox" name="sin_plan" value="Remision TO"> <span>Remisión a Terapia Ocupacional / Psicología / Medicina</span></label>
+        </div>
+    </div>
+
+    <div class="table-grid" style="border: 2px solid #ccc;">
+        <div class="table-grid-header" style="background:#222;">
+            <div class="table-grid-col" style="flex:1;">Soporte de Evidencias (Obligatorio en Expediente):</div>
+            <div class="table-grid-col" style="flex:1;">Aporte a Metas Contractuales Mensuales:</div>
+        </div>
+        <div class="table-grid-row">
+            <div class="table-grid-col" style="flex:1; justify-content:center;">
+                <label class="radio-item"><input type="checkbox" name="sin_sop" value="Epicollect"> <span>Registro en Formato Físico / Epicollect Registrado</span></label>
+                <label class="radio-item"><input type="checkbox" name="sin_sop" value="Foto 1"> <span>Evidencia Fotográfica N° 1 (Visita / Valoración)</span></label>
+                <label class="radio-item"><input type="checkbox" name="sin_sop" value="Foto 2"> <span>Evidencia Fotográfica N° 2 (Capacitación IEC / Ergonomía)</span></label>
+                <label class="radio-item"><input type="checkbox" name="sin_sop" value="Formato Canalizacion"> <span>Formato de Canalización Adjunto (si aplica)</span></label>
+            </div>
+            <div class="table-grid-col" style="flex:1; justify-content:center;">
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <span>• Visita N°</span><input type="text" id="meta_visita" class="form-control" style="width:50px; padding:2px;"><span> / 90 familias mes (Obligación 1 - 15%)</span>
+                </div>
+                <label class="radio-item"><input type="checkbox" id="meta_iec"> <span>• Acción IEC realizada (Obligación 2 - 10%)</span></label>
+                <label class="radio-item"><input type="checkbox" id="meta_can"> <span>• Canalización activada (Obligación 4 - 10%)</span></label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span>• Sesión Colectiva mensual (Obligación 3 - 13%):</span>
+                    <label class="radio-item"><input type="radio" name="meta_sesion" value="Sí"> <span>Sí</span></label>
+                    <label class="radio-item"><input type="radio" name="meta_sesion" value="No" checked> <span>No</span></label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group" style="padding: 15px; border: 1px dashed var(--teal); background:#f0f9ff;"><label>Anexar Evidencias (Max 5)</label><input type="file" id="evidencia-file" class="form-control" accept="image/*,application/pdf" multiple></div>
+
+    <div class="signatures-grid">
+        <div class="signature-box">
+            <label>Firma Fisioterapeuta</label>
+            <canvas id="canvas-prof" class="signature-pad"></canvas>
+            <button type="button" id="clear-prof" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;"><label>C.C. Profesional</label><input type="text" id="cc_profesional" class="form-control" required></div>
+        </div>
+        <div class="signature-box">
+            <label>Firma Jefe Hogar</label>
+            <canvas id="canvas-jefe" class="signature-pad"></canvas>
+            <button type="button" id="clear-jefe" class="btn-clear" style="margin-bottom: 15px;">Limpiar Firma</button>
+            <div class="form-group" style="text-align: left;"><label>C.C. Jefe / Cuidador</label><input type="text" id="cc_jefe" class="form-control" required></div>
+        </div>
+    </div>
+    <button type="submit" class="submit-btn"><i class="fas fa-save"></i> Guardar e Imprimir PDF</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/fisioterapia.js" defer></script>
+{% endblock %}

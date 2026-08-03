@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: aps-ese-2026-especialistas
+    env: python
+    region: ohio
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --access-logfile - --error-logfile -"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.6
+      - key: DEBUG
+        value: "False"
+      - key: PORT
+        value: 10000
+      - key: DB_HOST_AIVEN
+        sync: false
+      - key: DB_PASSWORD_AIVEN
+        sync: false
+      - key: DB_USER_AIVEN
+        sync: false
+      - key: DB_PORT_AIVEN
+        sync: false
+      - key: DB_NAME_AIVEN
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* CONFIGURACIÓN DE PÁGINA (ISO A4/Letter Standard) */
+        @page {
+            size: letter portrait;
+            margin: 1.2cm 1.5cm 2cm 1.5cm;
+            @frame footer_frame {
+                -pdf-frame-content: footer_content;
+                left: 50pt; width: 512pt; top: 750pt; height: 30pt;
+            }
+        }
+
+        /* TIPOGRAFÍA Y NORMALIZACIÓN */
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 9.5pt;
+            color: #2c3e50;
+        }
+        .m-0 { margin: 0; padding: 0; }
+        .lh-1 { line-height: 1; }
+
+        /* PALETA DE COLORES CLÍNICOS (AZUL REY) */
+        .color-royal { color: #0033a0; }
+        .bg-royal { background-color: #0033a0; color: #ffffff; }
+
+        /* ENCABEZADO ESTRICTO CONDENSADO */
+        .header-table { width: 100%; border-bottom: 3px solid #0033a0; padding-bottom: 5px; margin-bottom: 12px; }
+        .header-table td { vertical-align: middle; border: none; padding: 0; }
+        .header-center { text-align: center; }
+        .header-center h1 { font-size: 13pt; font-weight: bold; margin: 0 0 2px 0; line-height: 1; color: #0033a0; }
+        .header-center p { font-size: 8pt; font-weight: bold; margin: 0; line-height: 1; color: #444444; }
+
+        /* Control asimétrico estricto de Logos */
+        .logo-aps { width: 95px; height: auto; }
+        .logo-ese { width: 38px; height: auto; }
+
+        /* ESTRUCTURA DE SECCIONES (HISTORIA CLÍNICA) */
+        .section-title {
+            background-color: #0033a0;
+            color: #ffffff;
+            font-size: 10pt;
+            font-weight: bold;
+            padding: 4px 8px;
+            margin-top: 10px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        /* TABLAS DE ATRIBUTO-VALOR */
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .info-table td { border: 1px solid #c2c9d6; padding: 5px 6px; font-size: 8.5pt; vertical-align: middle; }
+        .info-label { background-color: #ecf0f1; color: #0033a0; font-weight: bold; width: 25%; }
+        .info-value { color: #222222; }
+
+        /* TABLAS DE GRILLA */
+        .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .grid-table th { background-color: #0033a0; color: #ffffff; padding: 5px; font-size: 8pt; font-weight: bold; text-align: center; border: 1px solid #0033a0;}
+        .grid-table td { border: 1px solid #c2c9d6; padding: 5px; font-size: 8.5pt; text-align: center; color: #222222;}
+
+        /* SECCIÓN DE FIRMAS */
+        .signatures { width: 100%; margin-top: 25px; border: none; page-break-inside: avoid; }
+        .signatures td { border: none; text-align: center; width: 50%; vertical-align: bottom; }
+        .signature-img { width: 130px; height: 65px; margin-bottom: 2px; }
+        .signature-line { border-top: 1px solid #333333; width: 80%; margin: 0 auto; padding-top: 4px; font-weight: bold; font-size: 8pt; color: #0033a0;}
+
+        /* FOOTER */
+        .footer-text { text-align: center; font-size: 7.5pt; color: #777777; border-top: 1px solid #dddddd; padding-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- PIE DE PÁGINA (Metadata ISO 27001) -->
+    <div id="footer_content">
+        <div class="footer-text">
+            Documento Electrónico Inalterable - Generado por Plataforma APS - Empresa Social del Estado<br>
+            ID Transacción: {{ data.id }} | Sellado en Nube: {{ data.created_at }}
+        </div>
+    </div>
+
+    <!-- ENCABEZADO CORPORATIVO CONDENSADO -->
+    <table class="header-table">
+        <tr>
+            <td width="20%" style="text-align: left;">
+                {% if data.logo_aps %}
+                    <img src="{{ data.logo_aps }}" class="logo-aps">
+                {% else %}
+                    <h2 class="color-royal m-0">APS</h2>
+                {% endif %}
+            </td>
+            <td width="60%" class="header-center">
+                <h1>EMPRESA SOCIAL DEL ESTADO</h1>
+                <p>Carrera 42 No. 32 /06</p>
+                <p>NIT. 822.002.459-8</p>
+                <p style="margin-top: 6px; font-size: 9.5pt; color: #0033a0;">VALORACIÓN NUTRICIONAL EN ATENCIÓN PRIMARIA EN SALUD</p>
+            </td>
+            <td width="20%" style="text-align: right;">
+                {% if data.logo_ese %}
+                    <img src="{{ data.logo_ese }}" class="logo-ese">
+                {% else %}
+                    <h2 class="color-royal m-0">ESE</h2>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 1: DATOS GENERALES DE IDENTIFICACIÓN (Estandarizado) -->
+    <div class="section-title">1. DATOS GENERALES DE IDENTIFICACIÓN</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 15%;">Fecha de Visita</td><td class="info-value" style="width: 35%;">{{ data.fecha_visita }}</td>
+            <td class="info-label" style="width: 15%;">Código Familia</td><td class="info-value" style="width: 35%;">{{ data.codigo_familia|default('F0000', true) }} (Visita No. {{ data.familia_visita_no|default('01', true) }})</td>
+        </tr>
+        <tr>
+            <td class="info-label">Territorio</td><td class="info-value">{{ data.territorio|default('N/A', true) }} / {{ data.microterritorio|default('N/A', true) }}</td>
+            <td class="info-label">Dirección</td><td class="info-value">{{ data.direccion|default('N/A', true) }}, Barrio: {{ data.barrio|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Geolocalización GPS</td>
+            <td colspan="3" class="info-value" style="color: #0369a1; font-family: monospace;">
+                Latitud: {{ data.latitud|default('0.000000', true) }} | Longitud: {{ data.longitud|default('0.000000', true) }}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Profesional a Cargo</td><td class="info-value">{{ data.nombre_nutricionista|default('N/A', true) }} (RP: {{ data.registro_profesional|default('N/A', true) }})</td>
+            <td class="info-label">Jefe de Hogar</td><td class="info-value">{{ data.nombre_jefe_hogar|default('N/A', true) }} (CC: {{ data.doc_identidad|default('N/A', true) }})</td>
+        </tr>
+        <tr>
+            <td class="info-label">Teléfono Contacto</td><td class="info-value">{{ data.telefono_contacto|default('N/A', true) }}</td>
+            <td class="info-label">Total Integrantes</td><td class="info-value">{{ data.total_integrantes|default('1', true) }}</td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 2: VALORACIÓN ANTROPOMÉTRICA Y DIAGNÓSTICO -->
+    <div class="section-title">2. VALORACIÓN ANTROPOMÉTRICA Y DIAGNÓSTICO</div>
+    <table class="grid-table">
+        <tr>
+            <th style="width: 28%;">Nombres y Apellidos</th>
+            <th style="width: 12%;">Condición</th>
+            <th style="width: 9%;">Peso</th>
+            <th style="width: 9%;">Talla</th>
+            <th style="width: 9%;">PB</th>
+            <th style="width: 21%;">Diagnóstico</th>
+            <th style="width: 12%;">EPS</th>
+        </tr>
+        {% if data.antropometria %}
+            {% for paciente in data.antropometria %}
+            <tr>
+                <td style="text-align: left;">{{ paciente.nombre }}</td>
+                <td>{{ paciente.condicion }}</td>
+                <td>{{ paciente.peso }} kg</td>
+                <td>{{ paciente.talla }} cm</td>
+                <td>{{ paciente.pb }} cm</td>
+                <td>{{ paciente.diagnostico }}</td>
+                <td>{{ paciente.eps }}</td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr><td colspan="7">No se registraron datos antropométricos.</td></tr>
+        {% endif %}
+    </table>
+
+    <!-- SECCIÓN 3: ANÁLISIS DE LA SEGURIDAD ALIMENTARIA FAMILIAR -->
+    <div class="section-title">3. ANÁLISIS DE LA SEGURIDAD ALIMENTARIA FAMILIAR</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 35%;">Acceso y Disponibilidad de Alimentos</td>
+            <td class="info-value">{{ data.seguridad_alimentaria.acceso|default('No especificado') }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Consumo Real y Hábitos en el Hogar</td>
+            <td class="info-value">{{ data.seguridad_alimentaria.consumo|default('No especificado') }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Percepción del Acceso (HFIAS)</td>
+            <td class="info-value">
+                ¿Algún miembro dejó de comer por falta de dinero?:
+                <strong>{% if data.seguridad_alimentaria.percepcion_hfias %}SÍ{% else %}NO{% endif %}</strong>
+            </td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 4: PLAN INTEGRAL DE CUIDADO PRIMARIO -->
+    <div class="section-title">4. PLAN INTEGRAL DE CUIDADO PRIMARIO</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 35%;">Líneas de Acción Impartidas</td>
+            <td class="info-value">
+                {% if data.plan_cuidado.lineas %}
+                    <ul class="m-0" style="padding-left: 15px; margin: 0;">
+                        {% for linea in data.plan_cuidado.lineas %}
+                            <li>{{ linea }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    Ninguna seleccionada
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Otra Línea de Acción</td>
+            <td class="info-value">{{ data.plan_cuidado.lineas_otra|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Compromiso Familiar Acordado</td>
+            <td class="info-value">{{ data.plan_cuidado.compromiso|default('N/A', true) }}</td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 5: SEGUIMIENTO ESTRICTO Y EVIDENCIAS -->
+    <div class="section-title">5. SEGUIMIENTO ESTRICTO Y EVIDENCIAS</div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label" style="width: 35%;">Gestión de Articulación Sectorial</td>
+            <td class="info-value">
+                {% if data.seguimiento.gestion %}
+                    {{ data.seguimiento.gestion | join(', ') }}
+                {% else %}
+                    Ninguna
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Soportes Físicos/Digitales Recolectados</td>
+            <td class="info-value">
+                {% if data.seguimiento.soportes %}
+                    {{ data.seguimiento.soportes | join(', ') }}
+                {% else %}
+                    Ninguno
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Evidencia Almacenada (Nube)</td>
+            <td class="info-value">
+                {% if data.evidencias_drive_urls %}
+                    Se respaldaron de forma segura <strong>{{ data.evidencias_drive_urls | length }} archivo(s)</strong> encriptado(s).
+                {% else %}
+                    No se adjuntaron evidencias digitales.
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="info-label">Remisión de Paciente</td>
+            <td class="info-value"><strong>{% if data.remite %}SÍ REQUIERE REMISIÓN PRIORITARIA{% else %}NO REQUIERE REMISIÓN{% endif %}</strong></td>
+        </tr>
+    </table>
+
+    <!-- FIRMAS DIGITALES ESTANDARIZADAS CON C.C. -->
+    <table class="signatures">
+        <tr>
+            <td>
+                {% if data.firma_profesional %}
+                    <img src="{{ data.firma_profesional }}" class="signature-img"><br>
+                {% else %}
+                    <br><br><br><br>
+                {% endif %}
+                <div class="signature-line">Firma Profesional Nutrición</div>
+                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. {{ data.cc_profesional|default('No registrado', true) }}</div>
+            </td>
+            <td>
+                {% if data.firma_cuidador %}
+                    <img src="{{ data.firma_cuidador }}" class="signature-img"><br>
+                {% else %}
+                    <br><br><br><br>
+                {% endif %}
+                <div class="signature-line">Firma Representante Familiar / Cuidador</div>
+                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. {{ data.cc_cuidador|default('No registrado', true) }}</div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

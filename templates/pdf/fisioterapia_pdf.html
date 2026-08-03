@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <style>
+        @page { size: letter portrait; margin: 1.2cm 1.5cm 2cm 1.5cm; @frame footer_frame { -pdf-frame-content: footer_content; left: 50pt; width: 512pt; top: 750pt; height: 30pt; } }
+        body { font-family: Helvetica, sans-serif; font-size: 8.5pt; color: #222; }
+        .bg-royal { background-color: #0033a0; color: #fff; }
+        .hdr { border-bottom: 2px solid #0033a0; margin-bottom: 8px; text-align: center; }
+        .hdr h1 { font-size: 11pt; color: #0033a0; margin:0; }
+        .sec-title { background: #0033a0; color: #fff; padding: 3px 5px; font-weight: bold; margin-top: 6px; text-transform: uppercase; font-size: 9pt; }
+        .tb { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+        .tb td, .tb th { border: 1px solid #ccc; padding: 4px; vertical-align: top;}
+        .lbl { background: #eee; font-weight: bold; width: 15%; color: #0033a0;}
+        .firmas { width: 100%; margin-top: 15px; text-align: center; }
+        .firmas td { border: none; width: 50%; vertical-align: bottom; }
+        .f-img { width: 120px; height: 50px; }
+        .f-line { border-top: 1px solid #000; width: 80%; margin: 0 auto; font-weight: bold; color: #0033a0; padding-top:2px;}
+        .footer-text { text-align: center; font-size: 7.5pt; color: #777777; border-top: 1px solid #dddddd; padding-top: 4px; }
+    </style>
+</head>
+<body>
+    <div id="footer_content">
+        <div class="footer-text">
+            Documento Electrónico Inalterable - Generado por Plataforma APS - Empresa Social del Estado<br>
+            ID Transacción: {{ data.id }} | Sellado en Nube: {{ data.created_at }}
+        </div>
+    </div>
+
+    <div class="hdr">
+        <table style="width:100%; border:none;"><tr>
+            <td style="width:20%;">{% if data.logo_aps %}<img src="{{ data.logo_aps }}" width="80">{% endif %}</td>
+            <td style="width:60%; text-align:center;"><h1>EMPRESA SOCIAL DEL ESTADO</h1><p style="margin:0; font-size:8pt;">NIT 822.002.459-8<br>VALORACIÓN FISIOTERAPÉUTICA APS</p></td>
+            <td style="width:20%; text-align:right;">{% if data.logo_ese %}<img src="{{ data.logo_ese }}" width="40">{% endif %}</td>
+        </tr></table>
+    </div>
+
+    <div class="sec-title">1. DATOS GENERALES DE IDENTIFICACIÓN</div>
+    <table class="tb">
+        <tr><td class="lbl">Fecha</td><td>{{ data.fecha_visita }}</td><td class="lbl">Familia</td><td>{{ data.codigo_familia }} (Visita {{ data.familia_visita_no }})</td></tr>
+        <tr><td class="lbl">Territorio</td><td>{{ data.territorio }} / {{ data.microterritorio }}</td><td class="lbl">Dirección</td><td>{{ data.direccion }}, {{ data.barrio }}</td></tr>
+        <tr><td class="lbl">Coordenadas</td><td colspan="3" style="font-family: monospace;">Lat: {{ data.latitud|default('0.000000', true) }} | Lon: {{ data.longitud|default('0.000000', true) }}</td></tr>
+        <tr><td class="lbl">Fisioterapeuta</td><td>{{ data.nombre_fisioterapeuta }} (RP: {{ data.registro_profesional }})</td><td class="lbl">Jefe Hogar</td><td>{{ data.nombre_jefe_hogar }} (CC: {{ data.doc_identidad }})</td></tr>
+        <tr><td class="lbl">Teléfono</td><td>{{ data.telefono_contacto }}</td><td class="lbl">Integrantes</td><td>{{ data.total_integrantes }}</td></tr>
+    </table>
+
+    <div class="sec-title">2. TAMIZAJE MOTOR (0-5 AÑOS)</div>
+    <table class="tb"><tr class="bg-royal"><th>Niño(a)</th><th>Edad</th><th>Hito Motor</th><th>Cumple</th><th>Alerta</th><th>Acción</th></tr>
+        {% for m in data.tamizaje_motor %}<tr><td>{{ m.nm }}</td><td>{{ m.ed }}</td><td>{{ m.ht }}</td><td>{{ m.cp }}</td><td>{{ m.al }}</td><td>{{ m.ac }}</td></tr>{% else %}<tr><td colspan="6">N/A</td></tr>{% endfor %}
+    </table>
+
+    <div class="sec-title">3. RIESGO CAÍDAS AM (≥ 60)</div>
+    <table class="tb"><tr class="bg-royal"><th>AM</th><th>Edad</th><th>TUG / Unipodal</th><th>Equilibrio</th><th>Caídas</th><th>Fractura</th><th>Riesgo</th></tr>
+        {% for c in data.riesgo_caidas %}<tr><td>{{ c.nm }}</td><td>{{ c.ed }}</td><td>{{ c.tg }}s / {{ c.un }}s</td><td>{{ c.eq }}</td><td>{{ c.hc }}</td><td>{{ c.fr }}</td><td>{{ c.cl }}</td></tr>{% else %}<tr><td colspan="7">N/A</td></tr>{% endfor %}
+    </table>
+
+    <!-- ARQUITECTURA PDF: Mapeo de la nueva lógica de JSON de Barreras -->
+    <div class="sec-title">4. BARRERAS ARQUITECTÓNICAS</div>
+    <table class="tb"><tr class="bg-royal"><th>Área</th><th>Riesgos Detectados</th><th>Afecta a</th><th>Recomendación</th></tr>
+        {% for b in data.barreras_arquitectonicas %}<tr><td>{{ b.area }}</td><td>{{ b.riesgos }}</td><td>{{ b.afecta }}</td><td>{{ b.recom }}</td></tr>{% else %}<tr><td colspan="4">Ninguna barrera identificada.</td></tr>{% endfor %}
+    </table>
+
+    <div class="sec-title">5. RIESGO ERGONÓMICO</div>
+    <table class="tb"><tr class="bg-royal"><th>Trabajador</th><th>Ocupación</th><th>Riesgos</th><th>Síntomas</th><th>Nivel</th></tr>
+        {% for e in data.riesgo_ergonomico %}<tr><td>{{ e.nm }}</td><td>{{ e.oc }}</td><td>{{ e.rs }}</td><td>{{ e.st }}</td><td>{{ e.nv }}</td></tr>{% else %}<tr><td colspan="5">N/A</td></tr>{% endfor %}
+    </table>
+
+    <div class="sec-title">6. ACCIONES Y EDUCACIÓN</div>
+    <table class="tb">
+        <tr><td class="lbl">Temáticas</td><td>{{ data.acciones_educacion.temas|join(', ') }}</td><td class="lbl">Herramienta</td><td>{{ data.acciones_educacion.herr|join(', ') }}</td></tr>
+    </table>
+
+    <div class="sec-title">7. CANALIZACIÓN Y ACTIVACIÓN DE RUTA</div>
+    <table class="tb">
+        <tr>
+            <td class="lbl">¿Requiere Ruta?</td><td style="font-weight:bold;">{{ data.canalizacion.requiere }}</td>
+            <td class="lbl">Prioridad</td><td>{{ data.canalizacion.prioridad|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Servicio(s)</td><td>{{ data.canalizacion.servicio|join(', ') }} {{ data.canalizacion.servicio_otro }}</td>
+            <td class="lbl">EPS</td><td>{{ data.canalizacion.eps|default('N/A', true) }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Motivo / Dx.</td><td colspan="3">{{ data.canalizacion.motivo|default('N/A', true) }}</td>
+        </tr>
+    </table>
+
+    <div class="sec-title">8. SÍNTESIS, METAS Y EVIDENCIAS</div>
+    <table class="tb">
+        <tr>
+            <td class="lbl">Diagnóstico Fam.</td><td>{{ data.sintesis_evidencias.diag }} - {{ data.sintesis_evidencias.detalle_diag }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Plan Seguimiento</td>
+            <td>{{ data.sintesis_evidencias.plan|join(', ') }} {% if data.sintesis_evidencias.revisita_dias %}(en {{ data.sintesis_evidencias.revisita_dias }} días){% endif %}</td>
+        </tr>
+    </table>
+
+    <table class="tb">
+        <tr>
+            <th class="bg-royal" style="width: 50%;">Soporte de Evidencias (Expediente)</th>
+            <th class="bg-royal" style="width: 50%;">Aporte a Metas Contractuales</th>
+        </tr>
+        <tr>
+            <td>
+                {% if data.sintesis_evidencias.soportes %}
+                    <ul style="margin:0; padding-left:15px;">{% for sop in data.sintesis_evidencias.soportes %}<li>{{ sop }}</li>{% endfor %}</ul>
+                {% else %}Ninguno{% endif %}
+                <br><em>*Archivos digitales subidos y encriptados: {{ data.evidencias_drive_urls|length }}</em>
+            </td>
+            <td>
+                • Visita N° {{ data.sintesis_evidencias.metas.visita }} / 90 familias mes<br>
+                • Acción IEC: {% if data.sintesis_evidencias.metas.iec %}Sí{% else %}No{% endif %}<br>
+                • Canalización activada: {% if data.sintesis_evidencias.metas.canal %}Sí{% else %}No{% endif %}<br>
+                • Sesión Colectiva mensual: {{ data.sintesis_evidencias.metas.sesion }}
+            </td>
+        </tr>
+    </table>
+
+    <table class="firmas"><tr>
+        <td>
+            {% if data.firma_profesional %}<img src="{{ data.firma_profesional }}" class="f-img"><br>{% else %}<br><br><br><br>{% endif %}
+            <div class="f-line">Firma Fisioterapeuta - RP: {{ data.registro_profesional }}</div>
+            <div style="font-size: 8pt; margin-top: 2px;">C.C. {{ data.cc_profesional|default('No registrado', true) }}</div>
+        </td>
+        <td>
+            {% if data.firma_jefe %}<img src="{{ data.firma_jefe }}" class="f-img"><br>{% else %}<br><br><br><br>{% endif %}
+            <div class="f-line">Firma Jefe de Hogar, Cuidador o Usuario</div>
+            <div style="font-size: 8pt; margin-top: 2px;">C.C. Original: {{ data.doc_identidad }} | C.C. Firma: {{ data.cc_jefe|default('No registrado', true) }}</div>
+        </td>
+    </tr></table>
+</body>
+</html>

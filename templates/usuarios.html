@@ -1,0 +1,120 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Gestión de Usuarios · IAM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .registros-container { display: flex; flex-direction: column; gap: 20px; }
+    .registros-header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 15px;}
+    .header-text { flex: 1 1 300px; }
+    
+    .btn-primary { background: linear-gradient(135deg, var(--navy) 0%, #1e3a8a 100%); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: all 0.3s; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;}
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(30, 58, 138, 0.2); }
+
+    .table-wrapper { background: white; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .data-table th { background: #f8fafc; padding: 15px; border-bottom: 2px solid var(--border); color: var(--navy); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;}
+    .data-table td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: #334155; vertical-align: middle; }
+    
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+    .bdg-admin { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .bdg-coord { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .bdg-dil { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .bdg-blocked { background: #111827; color: #f87171; border: 1px solid #374151;}
+
+    .action-btns { display: flex; gap: 6px; }
+    .btn-icon { border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: white; transition: all 0.2s; font-size: 0.85rem; }
+    .btn-block { background: #f59e0b; } .btn-block:hover { background: #d97706; }
+    .btn-unblock { background: #10b981; } .btn-unblock:hover { background: #059669; }
+    .btn-pass { background: #6366f1; } .btn-pass:hover { background: #4f46e5; }
+    .btn-del { background: #ef4444; } .btn-del:hover { background: #dc2626; }
+
+    /* Modal Glassmorphism */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); z-index: 1000; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
+    .modal-overlay.active { display: flex; opacity: 1; }
+    .modal-content { background: #ffffff; border-radius: 16px; width: 90%; max-width: 450px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: translateY(-30px); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; }
+    .modal-overlay.active .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 30px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .modal-header h3 { margin: 0; color: var(--navy); font-size: 1.25rem;}
+    .close-modal { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; color: #64748b; }
+    .close-modal:hover { background: #ef4444; color: white; }
+    .modal-body { padding: 30px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: 600; color: #334155; margin-bottom: 8px; font-size: 0.95rem; }
+    .form-group input, .form-group select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; }
+    .modal-footer { padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+</style>
+{% endblock %}
+
+{% block header_title %}ADMINISTRADOR DE CUENTAS{% endblock %}
+
+{% block content %}
+<div class="registros-container">
+    <div class="registros-header">
+        <div class="header-text">
+            <h3 style="margin:0; color:var(--navy); font-size:1.4rem;">Gestión IAM (Identity Access)</h3>
+            <p style="margin:4px 0 0 0; font-size:0.95rem; color:var(--text-muted);">Controle accesos, resetee credenciales y asigne roles a especialistas.</p>
+        </div>
+        <div class="header-actions" id="admin-actions">
+            <button class="btn-primary" onclick="openModal('create-modal')"><i class="fas fa-user-plus"></i> Crear Nuevo Usuario</button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr><th>Especialista</th><th>Correo Electrónico</th><th>Rol del Sistema</th><th>Estado</th><th style="text-align:center;">Operaciones</th></tr>
+            </thead>
+            <tbody id="users-body"><tr><td colspan="5" style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Creación -->
+<div id="create-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-shield" style="color:var(--teal);"></i> Nuevo Especialista</h3>
+            <button class="close-modal" onclick="closeModal('create-modal')"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="form-create">
+            <div class="modal-body">
+                <div class="form-group"><label>Nombre Completo</label><input type="text" id="crt_nombre" required></div>
+                <div class="form-group"><label>Correo Electrónico</label><input type="email" id="crt_email" required></div>
+                <div class="form-group"><label>Contraseña Asignada</label><input type="password" id="crt_pass" required minlength="6"></div>
+                <div class="form-group">
+                    <label>Asignación de Rol</label>
+                    <select id="crt_rol">
+                        <option value="DILIGENCIADOR">Diligenciador de Campo</option>
+                        <option value="COORDINADOR">Coordinador de ESE</option>
+                        <option value="ADMINISTRADOR">Administrador Maestro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn-primary">Registrar Usuario</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Reset Password -->
+<div id="pass-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-key" style="color:var(--teal);"></i> Cambiar Contraseña</h3>
+            <button class="close-modal" onclick="closeModal('pass-modal')"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="form-pass">
+            <input type="hidden" id="rst_id">
+            <div class="modal-body">
+                <p style="font-size:0.9rem; color:#dc2626;">Está a punto de sobreescribir la contraseña criptográfica de este usuario.</p>
+                <div class="form-group"><label>Nueva Contraseña</label><input type="password" id="rst_pass" required minlength="6"></div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn-primary" style="background:#dc2626;">Forzar Cambio</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/usuarios.js" defer></script>
+{% endblock %}
