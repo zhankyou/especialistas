@@ -23,7 +23,7 @@ class EmailService:
             # Captura de la URL base dinámica del servidor Flask
             login_url = f"{request.host_url}login"
         except:
-            login_url = "http://localhost:5000/login"
+            login_url = "https://especialistas.onrender.com/"
 
         msg = MIMEMultipart()
         msg['From'] = remitente
