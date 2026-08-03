@@ -11,6 +11,7 @@ app/
 ├── src/
 │   ├── __init__.py
 │   ├── utils/
+│   │   ├── security_utils.py
 │   │   └── auth_utils.py
 │   ├── models/
 │   │   ├── __init__.py
