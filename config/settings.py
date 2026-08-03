@@ -64,7 +64,7 @@ class Config:
     }
 
     # -------------------------------------------------------------------------
-    # CREDENCIALES DE SERVICIOS EXTERNOS
+    # CREDENCIALES DE SERVICIOS EXTERNOS & API GMAIL (OAUTH 2.0)
     # -------------------------------------------------------------------------
     DRIVE_FOLDERS = {
         'nutricion': os.environ.get('DRIVE_FOLDER_NUTRICION', '1AOg42aBJK7ovBwdo71k0qsGBGjF-o8H6'),
@@ -73,7 +73,17 @@ class Config:
     }
 
     GOOGLE_CREDENTIALS_JSON = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
+
+    # REGLA ESTRICTA DE NEGOCIO: Remitente centralizado (Single Source of Truth)
     GMAIL_SENDER = os.environ.get('GMAIL_SENDER', 'cristian.calentura@gmail.com')
+
+    # Variables de acceso OAuth2 para la API REST de Google
+    GMAIL_CLIENT_ID = os.environ.get('GMAIL_CLIENT_ID', '')
+    GMAIL_CLIENT_SECRET = os.environ.get('GMAIL_CLIENT_SECRET', '')
+    GMAIL_REFRESH_TOKEN = os.environ.get('GMAIL_REFRESH_TOKEN', '')
+
+    # Mantenido por retrocompatibilidad segun el snippet original
     GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD', '')
+
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
