@@ -1,4 +1,5 @@
 import os
+import sys
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
@@ -23,35 +24,48 @@ if env_path:
 
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'default_aps_secret_key')
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'default_jwt_secure_key')
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'default_aps_secret_key_2026')
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'default_jwt_secure_key_2026')
     PORT = int(os.environ.get('PORT', 5000))
-    DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-
-    # PARAMETRO ARQUITECTONICO CRITICO: Forzar recarga del motor Jinja2
+    DEBUG = os.environ.get('DEBUG', 'False') == 'True'
     TEMPLATES_AUTO_RELOAD = True
 
+    # -------------------------------------------------------------------------
+    # ARQUITECTURA CLOUD-NATIVE ESTRICTA (AIVEN POSTGRESQL)
+    # -------------------------------------------------------------------------
     aiven_host = os.environ.get('DB_HOST_AIVEN')
     aiven_pass = os.environ.get('DB_PASSWORD_AIVEN')
 
-    if aiven_host and aiven_pass:
-        db_user = os.environ.get('DB_USER_AIVEN', 'avnadmin')
-        db_port = os.environ.get('DB_PORT_AIVEN', '23508')
-        db_name = os.environ.get('DB_NAME_AIVEN', 'defaultdb')
-        safe_pass = quote_plus(aiven_pass)
-        db_url = f"postgresql://{db_user}:{safe_pass}@{aiven_host}:{db_port}/{db_name}?sslmode=require"
-    else:
-        db_user = os.environ.get('DB_USER', 'postgres')
-        db_pass = os.environ.get('DB_PASSWORD')
-        db_host = os.environ.get('DB_HOST', '127.0.0.1')
-        db_port = os.environ.get('DB_PORT', '5432')
-        db_name = os.environ.get('DB_NAME', 'postgres')
-        safe_pass = quote_plus(db_pass) if db_pass else ""
-        db_url = f"postgresql://{db_user}:{safe_pass}@{db_host}:{db_port}/{db_name}"
+    # Principio Fail-Fast: Si no hay credenciales de nube, el sistema aborta.
+    if not aiven_host or not aiven_pass:
+        print("[CRITICAL ERROR] Faltan credenciales de Aiven PostgreSQL (DB_HOST_AIVEN o DB_PASSWORD_AIVEN).")
+        print("[SYSTEM HALT] El sistema esta configurado para operar EXCLUSIVAMENTE en la nube. Abortando inicio.")
+        sys.exit(1)
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', db_url)
+    db_user = os.environ.get('DB_USER_AIVEN', 'avnadmin')
+    db_port = os.environ.get('DB_PORT_AIVEN', '23508')
+    db_name = os.environ.get('DB_NAME_AIVEN', 'defaultdb')
+
+    # Sanitizacion de caracteres especiales en la contrasena
+    safe_pass = quote_plus(aiven_pass)
+
+    # Cadena de conexion blindada con SSL obligatorio
+    db_url = f"postgresql://{db_user}:{safe_pass}@{aiven_host}:{db_port}/{db_name}?sslmode=require"
+
+    SQLALCHEMY_DATABASE_URI = db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # Optimizacion de Pool de Conexiones para Nube (Mitigacion de Timeouts)
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 10,
+        "max_overflow": 20
+    }
+
+    # -------------------------------------------------------------------------
+    # CREDENCIALES DE SERVICIOS EXTERNOS
+    # -------------------------------------------------------------------------
     DRIVE_FOLDERS = {
         'nutricion': os.environ.get('DRIVE_FOLDER_NUTRICION', '1AOg42aBJK7ovBwdo71k0qsGBGjF-o8H6'),
         'respiratoria': os.environ.get('DRIVE_FOLDER_RESPIRATORIA', '1l5KYIahKfquT37DaRz1GrLWRe77GmiLQ'),

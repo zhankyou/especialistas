@@ -1,90 +1,77 @@
 /**
- * CORE AUTH ENGINE - APS ESE
- * Responsabilidades: Captura de credenciales, Handshake con API,
- * Sanitización de LocalStorage y Manipulación UI (Visibilidad de Contraseña).
+ * CLIENTE DE AUTENTICACION IAM - APS ESE 2026
  */
-document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. Redirección automática si la sesión ya existe
-    if (localStorage.getItem('token')) {
-        window.location.replace('/dashboard');
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('login-form');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+
+    if (!loginForm) {
         return;
     }
 
-    // 2. Controladores del DOM
-    const loginForm = document.getElementById('login-form');
-    const togglePasswordBtn = document.getElementById('toggle-password');
-    const passwordInput = document.getElementById('password');
-    const eyeIcon = document.getElementById('eye-icon');
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-    // 3. Arquitectura UX: Alternador de visibilidad de contraseña
-    if (togglePasswordBtn && passwordInput && eyeIcon) {
-        togglePasswordBtn.addEventListener('click', () => {
-            const isPassword = passwordInput.type === 'password';
-            passwordInput.type = isPassword ? 'text' : 'password';
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        const submitButton = loginForm.querySelector('button[type="submit"]');
 
-            // Intercambio seguro de clases de FontAwesome
-            if (isPassword) {
-                eyeIcon.classList.remove('fa-eye');
-                eyeIcon.classList.add('fa-eye-slash');
+        if (!email || !password) {
+            if (window.AppDialog && typeof window.AppDialog.alert === 'function') {
+                window.AppDialog.alert('Validacion', 'Ingrese correo y contrasena.');
             } else {
-                eyeIcon.classList.remove('fa-eye-slash');
-                eyeIcon.classList.add('fa-eye');
+                alert('Ingrese correo y contrasena.');
             }
-        });
-    }
+            return;
+        }
 
-    // 4. Lógica transaccional de Inicio de Sesión
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = 'Autenticando...';
+        }
 
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email: email, password: password })
+            });
 
-            // Prevención de Double-Submit
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
+            const data = await response.json();
 
-            const emailInput = document.getElementById('email').value.trim();
-            const passValue = passwordInput.value;
+            if (response.ok && data.status === 'success') {
+                localStorage.setItem('token', data.data.token);
+                localStorage.setItem('email', data.data.email);
+                localStorage.setItem('rol', data.data.rol);
 
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email: emailInput,
-                        password: passValue
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Guardado criptográfico en Caché (Cero Trust)
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('email', data.email);
-                    localStorage.setItem('rol', data.rol);
-
-                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Acceso Concedido';
-                    setTimeout(() => {
-                        window.location.replace('/dashboard');
-                    }, 500);
+                window.location.replace('/dashboard');
+            } else {
+                if (window.AppDialog && typeof window.AppDialog.alert === 'function') {
+                    window.AppDialog.alert('Acceso Denegado', data.message || 'Credenciales invalidas.');
                 } else {
-                    // Manejo de Error de Credenciales
-                    alert(`Acceso Denegado: ${data.message}`);
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    alert(data.message || 'Credenciales invalidas.');
                 }
-            } catch (error) {
-                console.error("Fallo crítico de red: ", error);
-                alert("Error de conexión. Verifique que el servidor Backend esté respondiendo o su conexión a Internet.");
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+
+                passwordInput.value = '';
+                passwordInput.focus();
             }
-        });
-    }
+        } catch (error) {
+            console.error('Fallo de red al autenticar:', error);
+            if (window.AppDialog && typeof window.AppDialog.alert === 'function') {
+                window.AppDialog.alert('Error', 'No se pudo conectar con el servidor.');
+            } else {
+                alert('No se pudo conectar con el servidor.');
+            }
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Ingresar';
+            }
+        }
+    });
 });

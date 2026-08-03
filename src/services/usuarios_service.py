@@ -1,93 +1,136 @@
-from werkzeug.security import generate_password_hash
-from src.models.especialista_model import Especialista
+from sqlalchemy import func
 from src.models import db
+from src.models.especialista_model import Especialista
+from src.utils.security_utils import SecurityUtils
+from flask import current_app
 from src.services.email_service import EmailService
 
 
 class UsuariosService:
-    @staticmethod
-    def get_all_users():
+    """
+    Capa de Dominio. Intermediario estricto entre el Controlador y PostgreSQL.
+    Garantiza la atomicidad de transacciones y validacion de restricciones DDL.
+    """
+
+    @classmethod
+    def get_all_users(cls):
         try:
-            users = Especialista.query.order_by(Especialista.created_at.desc()).all()
-            data = [{
-                "id": u.id, "email": u.email, "nombre": u.nombre,
-                "rol": u.rol, "is_blocked": u.is_blocked, "created_at": str(u.created_at)
-            } for u in users]
-            return {"status": "success", "data": data, "code": 200}
+            usuarios = db.session.query(Especialista).order_by(Especialista.created_at.desc()).all()
+            data_list = [{
+                "id": u.id,
+                "nombre": u.nombre or "Profesional APS",
+                "email": u.email,
+                "rol": u.rol,
+                "is_blocked": getattr(u, 'is_blocked', not getattr(u, 'is_active', True))
+            } for u in usuarios]
+
+            return {"status": "success", "data": data_list, "code": 200}
         except Exception as e:
-            return {"status": "error", "message": str(e), "code": 500}
+            print(f"[DB ERROR] Error al extraer usuarios: {str(e)}")
+            return {"status": "error", "message": "Error interno del servidor de Base de Datos.", "code": 500}
 
-    @staticmethod
-    def create_user(data):
+    @classmethod
+    def create_user(cls, data):
+        raw_email = data.get('email')
+        nombre = data.get('nombre', 'Profesional APS')
+        rol = data.get('rol', 'PROFESIONAL_APS').upper()
+
+        clean_email = SecurityUtils.sanitize_email_strict(raw_email)
+        if not clean_email:
+            return {"status": "error", "message": "Formato de correo electronico invalido.", "code": 400}
+
         try:
-            if Especialista.query.filter_by(email=data.get('email')).first():
-                return {"status": "error", "message": "El correo ya está registrado.", "code": 409}
+            existing = db.session.query(Especialista).filter(
+                func.lower(func.trim(Especialista.email)) == func.lower(func.trim(clean_email))
+            ).first()
 
-            raw_password = data.get('password')
-            hashed_pwd = generate_password_hash(raw_password, method='pbkdf2:sha256:260000')
-            target_rol = data.get('rol', 'DILIGENCIADOR')
+            if existing:
+                return {"status": "error", "message": "El correo ya se encuentra registrado en el sistema.",
+                        "code": 409}
 
-            nuevo_user = Especialista(
-                email=data.get('email'),
-                nombre=data.get('nombre'),
-                password_hash=hashed_pwd,
-                rol=target_rol,
-                is_blocked=False
+            raw_password = data.get('password') or SecurityUtils.generate_secure_password(12)
+
+            nuevo_usuario = Especialista(
+                email=clean_email,
+                password=raw_password,
+                rol=rol,
+                nombre=nombre
             )
-            db.session.add(nuevo_user)
+
+            # Satisfaccion explicita de los constraints DDL
+            nuevo_usuario.is_blocked = False
+            nuevo_usuario.is_active = True
+
+            db.session.add(nuevo_usuario)
             db.session.commit()
 
-            # ARQUITECTURA DE EVENTOS: Despacho Asíncrono de Credenciales
-            EmailService.send_welcome_email(nuevo_user.email, nuevo_user.nombre, raw_password, target_rol)
+            # Extraccion del proxy local (Object Proxy Extraction)
+            app_obj = current_app._get_current_object()
 
-            return {"status": "success", "message": "Usuario creado. Credenciales enviadas por correo electrónico.",
-                    "code": 201}
+            # Despacho Asincrono
+            EmailService.send_welcome_credentials_async(app_obj, clean_email, raw_password, rol)
+
+            return {"status": "success",
+                    "message": f"Usuario {clean_email} creado correctamente. Credenciales enviadas.", "code": 201}
         except Exception as e:
             db.session.rollback()
-            print(f"Error DML Usuarios: {str(e)}")
-            return {"status": "error", "message": "Fallo interno DML al crear usuario.", "code": 500}
+            print(f"[DB ERROR] Fallo DML al crear usuario: {str(e)}")
+            return {"status": "error", "message": "Fallo en la transaccion de creacion de usuario.", "code": 500}
 
-    @staticmethod
-    def toggle_block(user_id, target_block_state):
+    @classmethod
+    def toggle_block(cls, user_id, is_blocked):
         try:
-            user = db.session.get(Especialista, user_id)
-            if not user: return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
+            user = db.session.query(Especialista).filter_by(id=user_id).first()
+            if not user:
+                return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
 
-            if user.rol == 'ADMINISTRADOR' and target_block_state == True:
-                return {"status": "error", "message": "No se puede bloquear a un Administrador.", "code": 403}
+            # Sincronizacion de ambos estados logicos
+            user.is_active = not is_blocked
+            user.is_blocked = is_blocked
 
-            user.is_blocked = target_block_state
+            if not is_blocked:
+                user.failed_login_attempts = 0
+                user.account_locked_until = None
+
             db.session.commit()
-            return {"status": "success", "message": "Estado de bloqueo actualizado.", "code": 200}
+            estado = "bloqueado" if is_blocked else "desbloqueado"
+            return {"status": "success", "message": f"Usuario {estado} exitosamente.", "code": 200}
         except Exception as e:
             db.session.rollback()
-            return {"status": "error", "message": "Fallo interno DML al bloquear.", "code": 500}
+            print(f"[DB ERROR] Error al alternar bloqueo: {str(e)}")
+            return {"status": "error", "message": "Error al actualizar estado del usuario.", "code": 500}
 
-    @staticmethod
-    def delete_user(user_id):
+    @classmethod
+    def delete_user(cls, user_id):
         try:
-            user = db.session.get(Especialista, user_id)
-            if not user: return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
-
-            if user.rol == 'ADMINISTRADOR':
-                return {"status": "error", "message": "Un Administrador no puede ser eliminado.", "code": 403}
+            user = db.session.query(Especialista).filter_by(id=user_id).first()
+            if not user:
+                return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
 
             db.session.delete(user)
             db.session.commit()
-            return {"status": "success", "message": "Usuario eliminado físicamente.", "code": 200}
+            print(f"[IAM AUDIT] Usuario {user.email} eliminado permanentemente por un Administrador.")
+            return {"status": "success", "message": "Usuario eliminado del sistema.", "code": 200}
         except Exception as e:
             db.session.rollback()
-            return {"status": "error", "message": "Fallo interno DML al eliminar.", "code": 500}
+            return {"status": "error", "message": "Fallo al ejecutar eliminacion en Base de Datos.", "code": 500}
 
-    @staticmethod
-    def reset_password(user_id, new_password):
+    @classmethod
+    def reset_password(cls, user_id, new_password):
+        if not new_password or len(new_password) < 8:
+            return {"status": "error", "message": "La nueva contrasena debe tener al menos 8 caracteres.", "code": 400}
+
         try:
-            user = db.session.get(Especialista, user_id)
-            if not user: return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
+            user = db.session.query(Especialista).filter_by(id=user_id).first()
+            if not user:
+                return {"status": "error", "message": "Usuario no encontrado.", "code": 404}
 
-            user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256:260000')
+            user.set_password(new_password)
+            user.failed_login_attempts = 0
+            user.account_locked_until = None
             db.session.commit()
-            return {"status": "success", "message": "Contraseña reestablecida.", "code": 200}
+
+            return {"status": "success", "message": "Credenciales restablecidas correctamente.", "code": 200}
         except Exception as e:
             db.session.rollback()
-            return {"status": "error", "message": "Fallo interno DML al resetear contraseña.", "code": 500}
+            return {"status": "error", "message": "Error al restablecer la contrasena.", "code": 500}

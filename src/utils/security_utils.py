@@ -2,7 +2,6 @@ import re
 import string
 import secrets
 
-
 class SecurityUtils:
     """
     Utilidades de seguridad para sanitizacion de entradas y generacion
@@ -12,8 +11,7 @@ class SecurityUtils:
     @staticmethod
     def generate_secure_password(length: int = 12) -> str:
         """
-        Genera una contraseña aleatoria de alta entropia alineada con normas NCSC/NIST.
-        Garantiza al menos una mayuscula, una minuscula, un numero y un caracter especial.
+        Genera una contrasena aleatoria de alta entropia alineada con normas NCSC/NIST.
         """
         if length < 8:
             length = 8
@@ -23,7 +21,6 @@ class SecurityUtils:
         digits = string.digits
         symbols = "!@#$%^&*"
 
-        # Asegurar al menos un caracter de cada grupo
         password = [
             secrets.choice(lowercase),
             secrets.choice(uppercase),
@@ -31,18 +28,16 @@ class SecurityUtils:
             secrets.choice(symbols)
         ]
 
-        # Rellenar el resto de la longitud elegida
         all_characters = lowercase + uppercase + digits + symbols
         password += [secrets.choice(all_characters) for _ in range(length - 4)]
 
-        # Mezclar criptograficamente la lista de caracteres
         secrets.SystemRandom().shuffle(password)
         return "".join(password)
 
     @staticmethod
-    def sanitize_email(email: str) -> str:
+    def sanitize_email_strict(email: str) -> str:
         """
-        Normaliza y sanitiza cadenas de correo electronico para prevenir inyecciones.
+        Validacion estricta para NUEVOS registros.
         """
         if not email or not isinstance(email, str):
             return ""
@@ -51,3 +46,13 @@ class SecurityUtils:
         if not re.match(email_regex, sanitized):
             return ""
         return sanitized
+
+    @staticmethod
+    def sanitize_email_login(email: str) -> str:
+        """
+        Validacion tolerante para LOGIN de usuarios legacy.
+        Mantiene el formato original para delegar la insensibilidad a mayusculas a PostgreSQL.
+        """
+        if not email or not isinstance(email, str):
+            return ""
+        return email.strip()

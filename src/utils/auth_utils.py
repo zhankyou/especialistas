@@ -6,19 +6,22 @@ from config.settings import Config
 
 def get_user_from_request(req):
     auth_header = req.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    if not auth_header:
         return None
+
     try:
         token = auth_header.split(" ")[1]
-        return jwt.decode(token, Config.JWT_SECRET_KEY, algorithms=['HS256'])
-    except:
+        payload = jwt.decode(token, Config.JWT_SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except Exception as e:
+        print(f"[IAM ERROR] Fallo de decodificacion JWT: {str(e)}")
         return None
 
 
 def require_roles(*allowed_roles):
     """
-    Decorador de Arquitectura RBAC.
-    Verifica que el Claim 'rol' dentro del JWT coincida con los parámetros permitidos.
+    Decorador RBAC (Role-Based Access Control).
+    Intercepta la peticion HTTP y valida criptograficamente la identidad y privilegios.
     """
 
     def decorator(f):
@@ -26,12 +29,21 @@ def require_roles(*allowed_roles):
         def decorated_function(*args, **kwargs):
             user_data = get_user_from_request(request)
             if not user_data:
-                return jsonify(
-                    {"status": "error", "message": "Autenticación requerida. Token faltante o inválido."}), 401
+                return jsonify({
+                    "status": "error",
+                    "message": "Autenticacion requerida. Firma JWT ausente o expirada."
+                }), 401
 
-            if user_data.get('rol') not in allowed_roles:
-                return jsonify({"status": "error",
-                                "message": f"Acceso denegado (HTTP 403). Rol requerido: {', '.join(allowed_roles)}."}), 403
+            user_role = user_data.get('rol', '').upper()
+            allowed_roles_upper = [r.upper() for r in allowed_roles]
+
+            if user_role not in allowed_roles_upper:
+                print(
+                    f"[SECURITY BREACH] Intento de escalada de privilegios bloqueado. Usuario: {user_data.get('email')} - Rol actual: {user_role}")
+                return jsonify({
+                    "status": "error",
+                    "message": "Acceso denegado. Privilegios insuficientes (RBAC)."
+                }), 403
 
             return f(*args, **kwargs)
 
