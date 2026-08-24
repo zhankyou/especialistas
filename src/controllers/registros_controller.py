@@ -1,151 +1,176 @@
-from flask import Blueprint, request, jsonify, render_template, Response
-import datetime
-from src.services.registros_service import RegistrosService
-from src.services.telegram_service import TelegramService
-from src.utils.auth_utils import get_user_from_request
-
-registros_bp = Blueprint('registros_bp', __name__)
-
-
-@registros_bp.route('/registros')
-def view_registros():
-    """Renderiza la vista principal del gestor de expedientes."""
-    return render_template('registros.html')
+import os
+import importlib
+import pkgutil
+from flask import Flask, redirect, url_for, render_template, request, Blueprint
+from sqlalchemy import inspect, text
+from config.settings import Config
+from src.models import db
 
 
-@registros_bp.route('/api/registros/list', methods=['GET'])
-def list_registros():
+def auto_repair_database_schema(app_instance):
     """
-    Lista expedientes unificados aplicando control de acceso basado en roles (RLAC).
+    Motor de auto-reparacion DDL operando estrictamente en la nube.
+    Garantiza la integridad estructural de la base de datos en Aiven PostgreSQL,
+    incluyendo las restricciones espaciales para Geolocalizacion.
     """
-    user_data = get_user_from_request(request)
-    if not user_data:
-        return jsonify({"status": "error", "message": "No autorizado."}), 401
+    with app_instance.app_context():
+        try:
+            inspector = inspect(db.engine)
 
-    is_deleted = request.args.get('deleted', 'false').lower() == 'true'
-    search = request.args.get('search', '').strip()
+            # 1. Validacion Tabla Especialistas
+            table_especialista = 'especialista'
+            if inspector.has_table(table_especialista):
+                existing_columns = [col['name'] for col in inspector.get_columns(table_especialista)]
+                required_columns = {
+                    'nombre': "VARCHAR(150) DEFAULT 'Profesional APS'",
+                    'is_active': 'BOOLEAN DEFAULT TRUE',
+                    'is_blocked': 'BOOLEAN DEFAULT FALSE',
+                    'failed_login_attempts': 'INTEGER DEFAULT 0',
+                    'account_locked_until': 'TIMESTAMP',
+                    'last_login_at': 'TIMESTAMP',
+                    'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+                    'updated_at': 'TIMESTAMP'
+                }
 
-    result = RegistrosService.get_registros(
-        is_deleted=is_deleted,
-        search_term=search,
-        user_email=user_data.get('email'),
-        user_role=user_data.get('rol')
-    )
-    return jsonify(result), result['code']
+                with db.engine.connect() as conn:
+                    for col_name, col_definition in required_columns.items():
+                        if col_name not in existing_columns:
+                            print(f"[AUTO-REPAIR CLOUD] Inyectando columna {col_name} en {table_especialista}")
+                            conn.execute(
+                                text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
+                    conn.commit()
+
+            # 2. Validacion Tabla Registros APS (Inyeccion DDL Geografica)
+            table_registros = 'registros_aps'
+            if inspector.has_table(table_registros):
+                existing_cols_reg = [col['name'] for col in inspector.get_columns(table_registros)]
+                required_cols_reg = {
+                    'latitud': "DOUBLE PRECISION NULL",
+                    'longitud': "DOUBLE PRECISION NULL"
+                }
+                with db.engine.connect() as conn:
+                    for c_name, c_def in required_cols_reg.items():
+                        if c_name not in existing_cols_reg:
+                            print(
+                                f"[AUTO-REPAIR CLOUD] Inyectando geolocalizacion: columna {c_name} en {table_registros}")
+                            conn.execute(text(f"ALTER TABLE {table_registros} ADD COLUMN {c_name} {c_def};"))
+                    conn.commit()
+
+            db.create_all()
+            print("[AUTO-REPAIR SUCCESS] Estructura validada y sincronizada en PostgreSQL Aiven.")
+
+        except Exception as e:
+            print(f"[CRITICAL DB ERROR] Fallo de comunicacion con Aiven Cloud: {str(e)}")
 
 
-@registros_bp.route('/api/registros/toggle', methods=['POST'])
-def toggle_registro():
+def auto_discover_blueprints(app_instance):
     """
-    Modifica el estado de borrado lógico (Soft Delete) de un expediente.
-    Restringe el permiso de restauración a perfiles no administrativos.
+    Patron de Arquitectura: Auto-Discovery (Cumplimiento SOLID: Open/Closed Principle).
+    Escanea dinamicamente la capa de controladores e inyecta todos los Blueprints validos.
+    Esto previene errores 404 al omitir registros manuales de nuevos formularios.
     """
-    user_data = get_user_from_request(request)
-    if not user_data:
-        return jsonify({"status": "error", "message": "No autorizado."}), 401
+    import src.controllers
 
-    data = request.get_json()
-    if not data or 'id' not in data or 'modulo' not in data or 'delete' not in data:
-        return jsonify({"status": "error", "message": "Payload invalido."}), 400
+    print("[ROUTER INIT] Iniciando escaneo de controladores API...")
 
-    # Regla de Negocio: DILIGENCIADOR no puede restaurar registros (delete == False)
-    if data['delete'] == False and user_data.get('rol') == 'DILIGENCIADOR':
-        return jsonify({
-            "status": "error",
-            "message": "Su rol no posee permisos para restaurar expedientes. Contacte a Coordinacion."
-        }), 403
-
-    result = RegistrosService.toggle_soft_delete(
-        record_id=data['id'],
-        modulo=data['modulo'],
-        is_deleted_flag=data['delete'],
-        user_email=user_data.get('email'),
-        user_role=user_data.get('rol')
-    )
-    return jsonify(result), result['code']
+    for _, module_name, _ in pkgutil.iter_modules(src.controllers.__path__):
+        try:
+            module = importlib.import_module(f'src.controllers.{module_name}')
+            for attribute_name in dir(module):
+                attribute = getattr(module, attribute_name)
+                # Si el atributo es una instancia de Blueprint, lo monta en el enrutador
+                if isinstance(attribute, Blueprint):
+                    if attribute.name not in app_instance.blueprints:
+                        app_instance.register_blueprint(attribute)
+                        print(f"[ROUTER SUCCESS] Endpoint montado exitosamente: {attribute.name}")
+        except Exception as e:
+            print(f"[ROUTER WARNING] No se pudo acoplar el modulo {module_name}: {str(e)}")
 
 
-@registros_bp.route('/api/registros/request_restore', methods=['POST'])
-def request_restore():
-    """
-    Envía una notificación vía Webhook a Telegram solicitando la restauración de un registro.
-    """
-    user_data = get_user_from_request(request)
-    if not user_data:
-        return jsonify({"status": "error", "message": "No autorizado."}), 401
+def create_app():
+    """Application Factory Architecture"""
+    app = Flask(__name__, static_folder='static', template_folder='templates')
+    app.config.from_object(Config)
 
-    data = request.get_json()
-    record_id = data.get('id') if data else None
-    if not record_id:
-        return jsonify({"status": "error", "message": "ID de expediente requerido."}), 400
+    # Inicializacion de capa de persistencia (ORM)
+    db.init_app(app)
 
-    success = TelegramService.send_restoration_request(
-        record_id=record_id,
-        user_email=user_data.get('email'),
-        user_role=user_data.get('rol')
-    )
+    # 1. Inyeccion Dinamica de Capa de Negocio (Controladores API)
+    auto_discover_blueprints(app)
 
-    if success:
-        return jsonify({
-            "status": "success",
-            "message": "Solicitud enviada a la linea administrativa (Telegram).",
-            "code": 200
-        }), 200
-    else:
-        return jsonify({
-            "status": "error",
-            "message": "Fallo de comunicacion con la API de Telegram.",
-            "code": 500
-        }), 500
+    # 2. Sincronizacion de Esquemas de Base de Datos
+    auto_repair_database_schema(app)
+
+    # -------------------------------------------------------------------------
+    # ENRUTADOR MAESTRO DE VISTAS FRONTEND (SPA RENDERING)
+    # -------------------------------------------------------------------------
+    @app.route('/')
+    def index():
+        return redirect(url_for('login_page'))
+
+    @app.route('/login')
+    def login_page():
+        return render_template('login.html')
+
+    @app.route('/dashboard')
+    def dashboard_page():
+        return render_template('dashboard.html')
+
+    @app.route('/usuarios')
+    def usuarios_page():
+        return render_template('usuarios.html')
+
+    @app.route('/registros')
+    def registros_page():
+        return render_template('registros.html')
+
+    @app.route('/nuevo_registro')
+    def nuevo_registro_page():
+        return render_template('nuevo_registro.html')
+
+    @app.route('/sincronizacion')
+    def sincronizacion_page():
+        return render_template('sincronizacion.html')
+
+    # RUTAS DE FORMULARIOS CLINICOS (ESPECIALIDADES)
+    @app.route('/nutricion')
+    def nutricion_page():
+        return render_template('nutricion.html')
+
+    @app.route('/respiratoria')
+    def respiratoria_page():
+        return render_template('respiratoria.html')
+
+    @app.route('/fisioterapia')
+    def fisioterapia_page():
+        return render_template('fisioterapia.html')
+
+    # -------------------------------------------------------------------------
+    # MIDDLEWARE DE SEGURIDAD GLOBAL (OWASP)
+    # -------------------------------------------------------------------------
+    @app.after_request
+    def apply_security_headers(response):
+        """Bloqueo de vectores de ataque XSS y Clickjacking."""
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        # Prevencion de retencion de datos PHI en cache para rutas API
+        if request.path.startswith('/api/'):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+
+        return response
+
+    return app
 
 
-@registros_bp.route('/api/registros/detalle/<modulo>/<record_id>', methods=['GET'])
-def detalle_registro(modulo, record_id):
-    """
-    Obtiene los detalles estructurados de un expediente garantizando que el DILIGENCIADOR solo acceda a los suyos.
-    """
-    user_data = get_user_from_request(request)
-    if not user_data:
-        return jsonify({"status": "error", "message": "No autorizado."}), 401
+# Instancia Global para servidores WSGI (Gunicorn)
+app = create_app()
 
-    result = RegistrosService.get_registro_detalle(
-        record_id=record_id,
-        modulo=modulo,
-        user_email=user_data.get('email'),
-        user_role=user_data.get('rol')
-    )
-    return jsonify(result), result['code']
-
-
-@registros_bp.route('/api/registros/export', methods=['GET'])
-def export_registros_csv():
-    """
-    Genera y sirve una exportación masiva en CSV filtrada dinámicamente y limitada según el rol.
-    """
-    user_data = get_user_from_request(request)
-    if not user_data:
-        return jsonify({"status": "error", "message": "No autorizado."}), 401
-
-    filtro_tipo = request.args.get('filtro', 'todo')
-    param1 = request.args.get('p1', '')
-    param2 = request.args.get('p2', '')
-
-    res = RegistrosService.exportar_expedientes_csv(
-        filtro_tipo=filtro_tipo,
-        param1=param1,
-        param2=param2,
-        user_email=user_data.get('email'),
-        user_role=user_data.get('rol')
-    )
-
-    if res['status'] == 'error':
-        return jsonify(res), res['code']
-
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"APS_Exportacion_Datos_{timestamp}.csv"
-
-    return Response(
-        res['csv_data'],
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={filename}"}
-    )
+if __name__ == '__main__':
+    print("[SYSTEM BOOT] Iniciando servidor APS ESE 2026...")
+    print(f"[NETWORK AUDIT] Conectando a Base de Datos Cloud: {Config.aiven_host}")
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=Config.DEBUG)
