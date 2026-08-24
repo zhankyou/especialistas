@@ -21,14 +21,16 @@
         <div class="form-group"><label>Barrio / Sector</label><input type="text" id="barrio" class="form-control" required></div>
         <div class="form-group"><label>Dirección / Finca</label><input type="text" id="direccion" class="form-control" required></div>
         
-        <!-- GEOLOCALIZACIÓN -->
+        <!-- GEOLOCALIZACIÓN: Inputs Híbridos -->
         <div class="form-group" style="grid-column: 1 / -1; background: #f0f9ff; padding: 15px; border-radius: 6px; border: 1px solid #bae6fd;">
-            <label style="color: #0369a1;"><i class="fas fa-map-marker-alt"></i> Geolocalización GPS (Obligatorio)</label>
+            <label style="color: #0369a1;"><i class="fas fa-map-marker-alt"></i> Geolocalización GPS (Automática o Manual)</label>
+            <p style="font-size: 0.8rem; color: #475569; margin: 5px 0;">Haga clic en Capturar, o ingrese las coordenadas manualmente si el GPS falla.</p>
             <div style="display:flex; gap:10px; margin-top: 5px;">
                 <button type="button" id="btn-geo" class="btn-add" style="background:#0284c7;"><i class="fas fa-satellite-dish"></i> Capturar</button>
-                <input type="text" id="latitud" class="form-control" placeholder="Latitud" readonly required style="background:#e0f2fe;">
-                <input type="text" id="longitud" class="form-control" placeholder="Longitud" readonly required style="background:#e0f2fe;">
+                <input type="text" id="latitud" class="form-control" placeholder="Latitud (Ej: 4.142)" required style="background:#ffffff;">
+                <input type="text" id="longitud" class="form-control" placeholder="Longitud (Ej: -73.626)" required style="background:#ffffff;">
             </div>
+            <small id="geo-status" style="display:block; margin-top:5px; font-weight:bold;"></small>
         </div>
 
         <div class="form-group"><label>Nombre Profesional</label><input type="text" id="nombre_profesional" class="form-control" required></div>
