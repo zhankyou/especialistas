@@ -10,13 +10,15 @@ from src.models import db
 def auto_repair_database_schema(app_instance):
     """
     Motor de auto-reparacion DDL operando estrictamente en la nube.
-    Garantiza la integridad estructural de la base de datos en Aiven PostgreSQL.
+    Garantiza la integridad estructural de la base de datos en Aiven PostgreSQL,
+    incluyendo las restricciones espaciales para Geolocalizacion.
     """
     with app_instance.app_context():
         try:
             inspector = inspect(db.engine)
-            table_especialista = 'especialista'
 
+            # 1. Validacion Tabla Especialistas
+            table_especialista = 'especialista'
             if inspector.has_table(table_especialista):
                 existing_columns = [col['name'] for col in inspector.get_columns(table_especialista)]
                 required_columns = {
@@ -36,6 +38,22 @@ def auto_repair_database_schema(app_instance):
                             print(f"[AUTO-REPAIR CLOUD] Inyectando columna {col_name} en {table_especialista}")
                             conn.execute(
                                 text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
+                    conn.commit()
+
+            # 2. Validacion Tabla Registros APS (Inyeccion DDL Geografica)
+            table_registros = 'registros_aps'
+            if inspector.has_table(table_registros):
+                existing_cols_reg = [col['name'] for col in inspector.get_columns(table_registros)]
+                required_cols_reg = {
+                    'latitud': "DOUBLE PRECISION NULL",
+                    'longitud': "DOUBLE PRECISION NULL"
+                }
+                with db.engine.connect() as conn:
+                    for c_name, c_def in required_cols_reg.items():
+                        if c_name not in existing_cols_reg:
+                            print(
+                                f"[AUTO-REPAIR CLOUD] Inyectando geolocalizacion: columna {c_name} en {table_registros}")
+                            conn.execute(text(f"ALTER TABLE {table_registros} ADD COLUMN {c_name} {c_def};"))
                     conn.commit()
 
             db.create_all()
