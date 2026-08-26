@@ -10,8 +10,7 @@ from src.models import db
 def auto_repair_database_schema(app_instance):
     """
     Motor de auto-reparacion DDL operando estrictamente en la nube.
-    Garantiza la integridad estructural de la base de datos en Aiven PostgreSQL,
-    incluyendo las restricciones espaciales para Geolocalizacion y Soft Delete.
+    Garantiza la inyeccion automatica de nuevas columnas en el indice maestro.
     """
     with app_instance.app_context():
         try:
@@ -40,19 +39,24 @@ def auto_repair_database_schema(app_instance):
                                 text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
                     conn.commit()
 
-            # 2. Validacion Tabla Registros APS (Inyeccion DDL Geografica y Papelera)
+            # 2. Validacion Tabla Registros APS (Esquema Hibrido)
             table_registros = 'registros_aps'
             if inspector.has_table(table_registros):
                 existing_cols_reg = [col['name'] for col in inspector.get_columns(table_registros)]
                 required_cols_reg = {
-                    'latitud': "DOUBLE PRECISION NULL",
-                    'longitud': "DOUBLE PRECISION NULL",
+                    'modulo': "VARCHAR(50) DEFAULT 'general'",
+                    'codigo_familia': "VARCHAR(50) DEFAULT 'N/A'",
+                    'nombre_jefe_hogar': "VARCHAR(150) DEFAULT 'N/A'",
+                    'doc_identidad': "VARCHAR(50) DEFAULT '00000000'",
+                    'especialista_email': "VARCHAR(150) DEFAULT 'N/A'",
+                    'fecha_visita': "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
                     'is_deleted': "BOOLEAN DEFAULT FALSE NOT NULL"
                 }
                 with db.engine.connect() as conn:
                     for c_name, c_def in required_cols_reg.items():
                         if c_name not in existing_cols_reg:
-                            print(f"[AUTO-REPAIR CLOUD] Inyectando atributo: columna {c_name} en {table_registros}")
+                            print(
+                                f"[AUTO-REPAIR CLOUD] Inyectando atributo de indexacion: {c_name} en {table_registros}")
                             conn.execute(text(f"ALTER TABLE {table_registros} ADD COLUMN {c_name} {c_def};"))
                     conn.commit()
 
@@ -64,11 +68,7 @@ def auto_repair_database_schema(app_instance):
 
 
 def auto_discover_blueprints(app_instance):
-    """
-    Patron de Arquitectura: Auto-Discovery (Cumplimiento SOLID: Open/Closed Principle).
-    Escanea dinamicamente la capa de controladores e inyecta todos los Blueprints validos.
-    Esto previene errores 404 al omitir registros manuales de nuevos formularios.
-    """
+    """Auto-Discovery de Controladores (SOLID: Open/Closed Principle)"""
     import src.controllers
 
     print("[ROUTER INIT] Iniciando escaneo de controladores API...")
@@ -78,7 +78,6 @@ def auto_discover_blueprints(app_instance):
             module = importlib.import_module(f'src.controllers.{module_name}')
             for attribute_name in dir(module):
                 attribute = getattr(module, attribute_name)
-                # Si el atributo es una instancia de Blueprint, lo monta en el enrutador
                 if isinstance(attribute, Blueprint):
                     if attribute.name not in app_instance.blueprints:
                         app_instance.register_blueprint(attribute)
@@ -92,14 +91,58 @@ def create_app():
     app = Flask(__name__, static_folder='static', template_folder='templates')
     app.config.from_object(Config)
 
-    # Inicializacion de capa de persistencia (ORM)
     db.init_app(app)
-
-    # 1. Inyeccion Dinamica de Capa de Negocio (Controladores API)
     auto_discover_blueprints(app)
-
-    # 2. Sincronizacion de Esquemas de Base de Datos
     auto_repair_database_schema(app)
+
+    # -------------------------------------------------------------------------
+    # MIDDLEWARE ARQUITECTÓNICO DE SINCRONIZACIÓN (INTERCEPTOR FACADE)
+    # -------------------------------------------------------------------------
+    @app.after_request
+    def sync_master_record(response):
+        """
+        Escucha peticiones HTTP exitosas de guardado de formularios (/api/<modulo>/save)
+        y clona automaticamente los metadatos en la tabla maestra (registros_aps).
+        Esto asegura que el Dashboard de Administrador NUNCA este vacio.
+        """
+        if request.method == 'POST' and '/save' in request.path and response.status_code == 200:
+            try:
+                modulo = request.path.split('/')[-2]  # Extrae ej: 'nutricion'
+                if modulo in ['nutricion', 'respiratoria', 'fisioterapia']:
+                    import json
+                    import re
+                    from src.models import db
+                    from src.models.registro_model import RegistroAPS
+                    from src.utils.auth_utils import get_user_from_request
+
+                    payload = json.loads(request.data) if request.data else {}
+                    user_data = get_user_from_request(request) or {}
+
+                    # Extraccion del UUID generado por el controlador interno
+                    res_text = response.get_data(as_text=True)
+                    match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', res_text)
+                    record_id = match.group(1) if match else None
+
+                    if record_id:
+                        exists = db.session.query(RegistroAPS).filter_by(id=record_id).first()
+                        if not exists:
+                            nuevo_registro = RegistroAPS(
+                                id=record_id,
+                                modulo=modulo.lower(),
+                                codigo_familia=payload.get('codigo_familia', 'N/A'),
+                                nombre_jefe_hogar=payload.get('nombre_jefe', payload.get('nombre_jefe_hogar', 'N/A')),
+                                doc_identidad=payload.get('doc_identidad', '00000000'),
+                                especialista_email=user_data.get('email', 'SISTEMA')
+                            )
+                            db.session.add(nuevo_registro)
+                            db.session.commit()
+                            print(f"[SYNC SUCCESS] Indice Maestro {record_id} consolidado automaticamente.")
+            except Exception as e:
+                print(f"[SYNC ERROR] Falla en el Middleware Interceptor: {str(e)}")
+                from src.models import db
+                db.session.rollback()
+
+        return response
 
     # -------------------------------------------------------------------------
     # ENRUTADOR MAESTRO DE VISTAS FRONTEND (SPA RENDERING)
@@ -132,7 +175,6 @@ def create_app():
     def sincronizacion_page():
         return render_template('sincronizacion.html')
 
-    # RUTAS DE FORMULARIOS CLINICOS (ESPECIALIDADES)
     @app.route('/nutricion')
     def nutricion_page():
         return render_template('nutricion.html')
@@ -145,18 +187,13 @@ def create_app():
     def fisioterapia_page():
         return render_template('fisioterapia.html')
 
-    # -------------------------------------------------------------------------
-    # MIDDLEWARE DE SEGURIDAD GLOBAL (OWASP)
-    # -------------------------------------------------------------------------
     @app.after_request
     def apply_security_headers(response):
-        """Bloqueo de vectores de ataque XSS y Clickjacking."""
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
-        # Prevencion de retencion de datos PHI en cache para rutas API
         if request.path.startswith('/api/'):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
@@ -166,11 +203,9 @@ def create_app():
     return app
 
 
-# Instancia Global para servidores WSGI (Gunicorn)
 app = create_app()
 
 if __name__ == '__main__':
     print("[SYSTEM BOOT] Iniciando servidor APS ESE 2026...")
-    print(f"[NETWORK AUDIT] Conectando a Base de Datos Cloud: {Config.aiven_host}")
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=Config.DEBUG)
