@@ -1,7 +1,7 @@
 /**
  * CORE REGISTROS ENGINE - APS ESE 2026
  * Arquitectura: ES6 Class Pattern (SOLID: Single Responsibility Principle)
- * Responsabilidades: Interfaz de usuario, Seguridad XSS, Peticiones asíncronas y BLOB streaming.
+ * Responsabilidades: Renderizado SPA, Seguridad XSS, Peticiones asincronas y BLOB Streaming.
  */
 
 class RegistrosEngine {
@@ -10,7 +10,6 @@ class RegistrosEngine {
         this.userRole = localStorage.getItem('rol') ? localStorage.getItem('rol').trim().toUpperCase() : 'PROFESIONAL_APS';
         this.isDeletedView = false;
 
-        // Elementos del DOM
         this.tableBody = document.getElementById('table-body');
         this.searchInput = document.getElementById('search-input');
         this.searchForm = document.getElementById('search-form');
@@ -18,7 +17,6 @@ class RegistrosEngine {
         this.filterSelect = document.getElementById('export_filter_type');
         this.exportForm = document.getElementById('export-form');
 
-        // Temporizador para Debounce
         this.searchTimeout = null;
     }
 
@@ -34,7 +32,6 @@ class RegistrosEngine {
     }
 
     bindEvents() {
-        // Eventos de Búsqueda
         if (this.searchForm) {
             this.searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -47,11 +44,10 @@ class RegistrosEngine {
                 clearTimeout(this.searchTimeout);
                 this.searchTimeout = setTimeout(() => {
                     this.fetchRegistros();
-                }, 500); // Debounce de 500ms para proteger la base de datos
+                }, 500);
             });
         }
 
-        // Eventos del Modal de Exportación
         const btnOpen = document.getElementById('btn-open-export');
         const btnClose = document.getElementById('btn-close-export');
         const btnCancel = document.getElementById('btn-cancel-export');
@@ -75,15 +71,11 @@ class RegistrosEngine {
             });
         }
 
-        // Evento de Extracción de Datos (BLOB CSV)
         if (this.exportForm) {
             this.exportForm.addEventListener('submit', (e) => this.handleExport(e));
         }
     }
 
-    // -------------------------------------------------------------------------
-    // MOTOR DE SEGURIDAD Y PROTECCIÓN XSS (OWASP A03)
-    // -------------------------------------------------------------------------
     sanitizeHTML(str) {
         if (str === null || str === undefined) return '';
         return String(str).replace(/[&<>'"]/g, tag => ({
@@ -95,14 +87,11 @@ class RegistrosEngine {
         }[tag] || tag));
     }
 
-    // -------------------------------------------------------------------------
-    // SINCRONIZACIÓN DE RED
-    // -------------------------------------------------------------------------
     async fetchRegistros() {
         if (!this.tableBody) return;
 
         const searchTerm = this.searchInput ? this.searchInput.value.trim() : '';
-        this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="text-align:center;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Sincronizando expedientes...</td></tr>';
+        this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="text-align:center;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Consolidando expedientes desde PostgreSQL Aiven...</td></tr>';
 
         try {
             const url = `/api/registros/list?deleted=${this.isDeletedView}&search=${encodeURIComponent(searchTerm)}`;
@@ -123,52 +112,45 @@ class RegistrosEngine {
             }
         } catch (error) {
             console.error('[NETWORK ERROR]', error);
-            this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:#dc2626; text-align:center;">Fallo de conexión con PostgreSQL Aiven.</td></tr>';
+            this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:#dc2626; text-align:center;">Fallo de conexion con la Base de Datos.</td></tr>';
         }
     }
 
-    // -------------------------------------------------------------------------
-    // MOTOR DE RENDERIZADO DOM
-    // -------------------------------------------------------------------------
     renderTable(records) {
         this.tableBody.innerHTML = '';
 
         if (!records || records.length === 0) {
-            this.tableBody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align:center; color:#64748b;"><i class="fas fa-folder-open fa-2x"></i><br><br>No se encontraron expedientes.</td></tr>`;
+            this.tableBody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align:center; color:#64748b;"><i class="fas fa-folder-open fa-2x"></i><br><br>No se encontraron expedientes registrados.</td></tr>`;
             return;
         }
 
         records.forEach(rec => {
-            // Sanitización Absoluta de todas las cadenas provenientes de la BD
             const safeId = this.sanitizeHTML(rec.id);
-            const safeModulo = this.sanitizeHTML(rec.especialidad || rec.modulo || 'general').toLowerCase();
-            const safeFecha = this.sanitizeHTML(rec.created_at || rec.fecha_visita);
-            const safeCodigo = this.sanitizeHTML(rec.paciente_documento || rec.codigo_familia);
-            const safeNombre = this.sanitizeHTML(rec.paciente_nombre || rec.nombre_jefe_hogar);
-            const safeDoc = this.sanitizeHTML(rec.paciente_documento || rec.doc_identidad);
-            const safeEmail = this.sanitizeHTML(rec.profesional_email || rec.especialista_email);
+            const safeModulo = this.sanitizeHTML(rec.modulo || 'general').toLowerCase();
+            const safeFecha = this.sanitizeHTML(rec.fecha_visita);
+            const safeCodigo = this.sanitizeHTML(rec.codigo_familia);
+            const safeNombre = this.sanitizeHTML(rec.nombre_jefe_hogar);
+            const safeDoc = this.sanitizeHTML(rec.doc_identidad);
+            const safeEmail = this.sanitizeHTML(rec.especialista_email);
 
             const badgeClass = safeModulo === 'nutricion' ? 'bg-nut' : safeModulo === 'respiratoria' ? 'bg-res' : 'bg-fis';
             let actionButtons = '';
 
             if (!this.isDeletedView) {
-                // Vista Transaccional
                 actionButtons = `
                     <button class="btn-icon btn-pdf" title="Descargar PDF" onclick="window.Engine.downloadPdf('${safeModulo}', '${safeId}')"><i class="fas fa-file-pdf"></i></button>
                     <button class="btn-icon btn-edit" title="Editar Expediente" onclick="window.Engine.editRecord('${safeModulo}', '${safeId}')"><i class="fas fa-edit"></i></button>
                     <button class="btn-icon btn-del" title="Mover a Papelera" onclick="window.Engine.toggleDelete('${safeId}', true)"><i class="fas fa-trash-alt"></i></button>
                 `;
             } else {
-                // Vista Papelera Lógica
                 if (this.userRole !== 'ADMINISTRADOR' && this.userRole !== 'COORDINADOR') {
-                    actionButtons = `<button class="btn-icon" style="background:#f59e0b; color:white;" title="Solicitar Restauración" onclick="window.Engine.requestRestore('${safeId}')"><i class="fas fa-paper-plane"></i> Solicitar</button>`;
+                    actionButtons = `<button class="btn-icon" style="background:#f59e0b; color:white;" title="Solicitar Restauracion" onclick="window.Engine.requestRestore('${safeId}')"><i class="fas fa-paper-plane"></i> Solicitar</button>`;
                 } else {
-                    actionButtons = `<button class="btn-icon btn-restore" title="Aprobar Restauración" onclick="window.Engine.toggleDelete('${safeId}', false)"><i class="fas fa-undo"></i> Restaurar</button>`;
+                    actionButtons = `<button class="btn-icon btn-restore" title="Restaurar Expediente" onclick="window.Engine.toggleDelete('${safeId}', false)"><i class="fas fa-undo"></i> Restaurar</button>`;
                 }
             }
 
             const tr = document.createElement('tr');
-            // Inyección HTML Segura tras el saneamiento
             tr.innerHTML = `
                 <td>
                     <strong>${safeFecha}</strong><br>
@@ -187,9 +169,6 @@ class RegistrosEngine {
         });
     }
 
-    // -------------------------------------------------------------------------
-    // MOTOR DE EXTRACCIÓN DE DATOS (BLOB CSV)
-    // -------------------------------------------------------------------------
     handleExport(e) {
         e.preventDefault();
         const type = this.filterSelect.value;
@@ -220,7 +199,7 @@ class RegistrosEngine {
             headers: { 'Authorization': `Bearer ${this.token}` }
         })
         .then(response => {
-            if(!response.ok) throw new Error("Fallo en la generacion del archivo CSV en el servidor.");
+            if(!response.ok) throw new Error("Fallo al generar reporte CSV en el servidor.");
             return response.blob();
         })
         .then(blob => {
@@ -235,8 +214,8 @@ class RegistrosEngine {
             this.exportModal.classList.remove('active');
         })
         .catch(err => {
-            console.error("[EXPORT ERROR]", err);
-            alert("No se pudo descargar el archivo.");
+            console.error('[EXPORT ERROR]', err);
+            alert("No se pudo generar el archivo de exportacion.");
         })
         .finally(() => {
             submitBtn.disabled = false;
@@ -244,11 +223,8 @@ class RegistrosEngine {
         });
     }
 
-    // -------------------------------------------------------------------------
-    // MÉTODOS PÚBLICOS GLOBALES (Expuestos al DOM)
-    // -------------------------------------------------------------------------
     exposeGlobalMethods() {
-        window.Engine = this; // Proxy para los manejadores onclick del HTML generado dinámicamente
+        window.Engine = this;
 
         window.switchTab = (deletedMode) => {
             this.isDeletedView = deletedMode;
@@ -275,12 +251,10 @@ class RegistrosEngine {
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 2500);
             }
-        }).catch(err => console.error("[CLIPBOARD ERROR]", err));
+        }).catch(err => console.error('[CLIPBOARD ERROR]', err));
     }
 
     downloadPdf(modulo, id) {
-        // Asumiendo que el PDF es un endpoint protegido, se debería manejar via fetch/blob.
-        // Si el endpoint valida cookies o es público, window.open es aceptable.
         window.open(`/api/${modulo}/${id}/pdf`, '_blank');
     }
 
@@ -304,13 +278,13 @@ class RegistrosEngine {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.token}`
                 },
-                body: JSON.stringify({ record_id: id }) // CONTRATO REST CORREGIDO: record_id
+                body: JSON.stringify({ record_id: id })
             });
             const data = await response.json();
             alert(data.message || 'Solicitud procesada.');
         } catch (err) {
-            console.error("[NETWORK ERROR]", err);
-            alert("Fallo de red al intentar contactar al servidor IAM.");
+            console.error('[NETWORK ERROR]', err);
+            alert("Error de red al intentar contactar al servidor de notificaciones.");
         }
     }
 
@@ -318,7 +292,6 @@ class RegistrosEngine {
         const actionText = deleteFlag ? "mover a la papelera" : "restaurar";
         if (!confirm(`¿Esta seguro de ${actionText} este expediente?`)) return;
 
-        // Utilizamos el endpoint estandarizado REST que configuramos previamente
         const url = deleteFlag ? `/api/registros/delete/${id}` : `/api/registros/restore/${id}`;
         const method = deleteFlag ? 'DELETE' : 'POST';
 
@@ -338,13 +311,12 @@ class RegistrosEngine {
                 alert(`Fallo en la operacion: ${data.message}`);
             }
         } catch (err) {
-            console.error("[NETWORK ERROR]", err);
-            alert("Error de red al aplicar borrado/restauracion logica.");
+            console.error('[NETWORK ERROR]', err);
+            alert("Error de red al modificar el estado del expediente.");
         }
     }
 }
 
-// Inicialización Orquestada
 document.addEventListener('DOMContentLoaded', () => {
     const appEngine = new RegistrosEngine();
     appEngine.init();
