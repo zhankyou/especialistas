@@ -12,24 +12,33 @@ registros_bp = Blueprint('registros_bp', __name__)
 def list_registros():
     """
     Endpoint principal de consulta con soporte para busqueda y Soft Delete.
-    Resuelve el error 404 expuesto por el cliente SPA.
+    Implementa mitigacion de Filtrado Silencioso (Three-Valued Logic) y Saneamiento RBAC.
     """
     user_data = get_user_from_request(request)
     if not user_data:
         return jsonify({"status": "error", "message": "Autenticacion requerida o token invalido."}), 401
 
     try:
-        user_role = user_data.get('rol', 'PROFESIONAL_APS').upper()
-        user_email = user_data.get('email', '')
+        # Saneamiento Absoluto de RBAC (Evita desajustes por espacios invisibles o minúsculas)
+        user_role = str(user_data.get('rol', 'PROFESIONAL_APS')).strip().upper()
+        user_email = str(user_data.get('email', '')).strip()
 
-        is_deleted_requested = request.args.get('deleted', 'false').lower() == 'true'
+        is_deleted_requested = request.args.get('deleted', 'false').strip().lower() == 'true'
         search_query = request.args.get('search', '').strip()
 
-        base_query = db.session.query(RegistroAPS).filter(RegistroAPS.is_deleted == is_deleted_requested)
+        # Construccion de query parametrizado con Tolerancia a Nulos en DB Legacy
+        if is_deleted_requested:
+            base_query = db.session.query(RegistroAPS).filter(RegistroAPS.is_deleted == True)
+        else:
+            base_query = db.session.query(RegistroAPS).filter(
+                or_(RegistroAPS.is_deleted == False, RegistroAPS.is_deleted.is_(None))
+            )
 
+        # Regla RBAC: Aislamiento de datos si el rol no es gerencial
         if user_role not in ['ADMINISTRADOR', 'COORDINADOR']:
             base_query = base_query.filter(RegistroAPS.profesional_email == user_email)
 
+        # Motor de busqueda indexada
         if search_query:
             search_term = f"%{search_query}%"
             base_query = base_query.filter(
@@ -104,7 +113,7 @@ def delete_registro(record_id):
         if not registro:
             return jsonify({"status": "error", "message": "Registro no encontrado."}), 404
 
-        user_role = user_data.get('rol', 'PROFESIONAL_APS').upper()
+        user_role = str(user_data.get('rol', '')).strip().upper()
         if user_role not in ['ADMINISTRADOR', 'COORDINADOR'] and registro.profesional_email != user_data.get('email'):
             print(f"[SECURITY WARNING] Intento de borrado no autorizado por: {user_data.get('email')}")
             return jsonify(
@@ -112,6 +121,7 @@ def delete_registro(record_id):
 
         registro.is_deleted = True
         db.session.commit()
+        print(f"[DATA SUCCESS] Expediente {record_id} enviado a papelera logica.")
         return jsonify({"status": "success", "message": "El expediente fue trasladado a la papelera."}), 200
 
     except Exception as e:
