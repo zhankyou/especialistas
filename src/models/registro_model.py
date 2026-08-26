@@ -5,41 +5,33 @@ from src.models import db
 
 class RegistroAPS(db.Model):
     """
-    Entidad de Dominio para los Registros Clinicos APS.
-    Implementa patron Soft Delete para cumplimiento de auditoria ISO 27001.
+    Entidad de Dominio Maestra para los Registros Clinicos APS.
+    Actua como Indice Global Consolidado para el Dashboard de Administracion.
+    Sincronizada dinamicamente mediante el Middleware Interceptor de app.py.
     """
     __tablename__ = 'registros_aps'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    paciente_nombre = db.Column(db.String(150), nullable=False)
-    paciente_documento = db.Column(db.String(50), nullable=False, index=True)
-    especialidad = db.Column(db.String(50), nullable=False)
-    profesional_email = db.Column(db.String(150), nullable=False, index=True)
-    estado_sincronizacion = db.Column(db.String(20), default='SINCRONIZADO', nullable=False)
+    id = db.Column(db.String(36), primary_key=True)
+    modulo = db.Column(db.String(50), nullable=False, default='general')
+    codigo_familia = db.Column(db.String(50), nullable=False, default='N/A')
+    nombre_jefe_hogar = db.Column(db.String(150), nullable=False, default='N/A')
+    doc_identidad = db.Column(db.String(50), nullable=False, index=True, default='00000000')
+    especialista_email = db.Column(db.String(150), nullable=False, index=True)
+    fecha_visita = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # Geolocalizacion (Type: Float)
-    latitud = db.Column(db.Float, nullable=True)
-    longitud = db.Column(db.Float, nullable=True)
-
-    # Control de Estado (Soft Delete)
+    # Control de Estado Transaccional (Soft Delete)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
-
-    observaciones = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     def to_dict(self):
-        """Serializador del objeto relacional."""
+        """Serializador del objeto relacional alineado milimetricamente al Frontend SPA."""
         return {
             "id": self.id,
-            "paciente_nombre": self.paciente_nombre,
-            "paciente_documento": self.paciente_documento,
-            "especialidad": self.especialidad,
-            "profesional_email": self.profesional_email,
-            "estado_sincronizacion": self.estado_sincronizacion,
-            "latitud": self.latitud,
-            "longitud": self.longitud,
-            "is_deleted": self.is_deleted,
-            "observaciones": self.observaciones or "",
-            "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else ""
+            "modulo": self.modulo,
+            "codigo_familia": self.codigo_familia,
+            "nombre_jefe_hogar": self.nombre_jefe_hogar,
+            "doc_identidad": self.doc_identidad,
+            "especialista_email": self.especialista_email,
+            "fecha_visita": self.fecha_visita.strftime('%Y-%m-%d %H:%M:%S') if self.fecha_visita else "",
+            "is_deleted": self.is_deleted
         }
