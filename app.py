@@ -1,6 +1,7 @@
 import os
 import importlib
 import pkgutil
+import re
 from flask import Flask, redirect, url_for, render_template, request, Blueprint
 from sqlalchemy import inspect, text
 from config.settings import Config
@@ -9,8 +10,9 @@ from src.models import db
 
 def auto_repair_database_schema(app_instance):
     """
-    Motor de auto-reparacion DDL operando estrictamente en la nube.
-    Garantiza la inyeccion automatica de nuevas columnas en el indice maestro.
+    Motor de auto-reparacion DDL.
+    Asegura que el Indice Maestro (registros_aps) tenga la misma topologia estructural
+    requerida por el Frontend SPA.
     """
     with app_instance.app_context():
         try:
@@ -35,11 +37,10 @@ def auto_repair_database_schema(app_instance):
                     for col_name, col_definition in required_columns.items():
                         if col_name not in existing_columns:
                             print(f"[AUTO-REPAIR CLOUD] Inyectando columna {col_name} en {table_especialista}")
-                            conn.execute(
-                                text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
+                            conn.execute(text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
                     conn.commit()
 
-            # 2. Validacion Tabla Registros APS (Esquema Hibrido)
+            # 2. Validacion Indice Maestro (registros_aps)
             table_registros = 'registros_aps'
             if inspector.has_table(table_registros):
                 existing_cols_reg = [col['name'] for col in inspector.get_columns(table_registros)]
@@ -55,13 +56,12 @@ def auto_repair_database_schema(app_instance):
                 with db.engine.connect() as conn:
                     for c_name, c_def in required_cols_reg.items():
                         if c_name not in existing_cols_reg:
-                            print(
-                                f"[AUTO-REPAIR CLOUD] Inyectando atributo de indexacion: {c_name} en {table_registros}")
+                            print(f"[AUTO-REPAIR CLOUD] Inyectando atributo: {c_name} en {table_registros}")
                             conn.execute(text(f"ALTER TABLE {table_registros} ADD COLUMN {c_name} {c_def};"))
                     conn.commit()
 
             db.create_all()
-            print("[AUTO-REPAIR SUCCESS] Estructura validada y sincronizada en PostgreSQL Aiven.")
+            print("[AUTO-REPAIR SUCCESS] Estructuras validadas en PostgreSQL Aiven.")
 
         except Exception as e:
             print(f"[CRITICAL DB ERROR] Fallo de comunicacion con Aiven Cloud: {str(e)}")
@@ -96,52 +96,77 @@ def create_app():
     auto_repair_database_schema(app)
 
     # -------------------------------------------------------------------------
-    # MIDDLEWARE ARQUITECTÓNICO DE SINCRONIZACIÓN (INTERCEPTOR FACADE)
+    # MIDDLEWARE ARQUITECTÓNICO DE SINCRONIZACIÓN PROFUNDA (INTERCEPTOR)
     # -------------------------------------------------------------------------
     @app.after_request
     def sync_master_record(response):
         """
-        Escucha peticiones HTTP exitosas de guardado de formularios (/api/<modulo>/save)
-        y clona automaticamente los metadatos en la tabla maestra (registros_aps).
-        Esto asegura que el Dashboard de Administrador NUNCA este vacio.
+        Escucha peticiones de guardado exitosas. Extrae el UUID generado
+        y consulta DIRECTAMENTE la tabla de la especialidad correspondiente 
+        para poblar el Indice Maestro (registros_aps) sin depender del Payload HTTP.
         """
         if request.method == 'POST' and '/save' in request.path and response.status_code == 200:
             try:
-                modulo = request.path.split('/')[-2]  # Extrae ej: 'nutricion'
-                if modulo in ['nutricion', 'respiratoria', 'fisioterapia']:
-                    import json
-                    import re
-                    from src.models import db
-                    from src.models.registro_model import RegistroAPS
-                    from src.utils.auth_utils import get_user_from_request
+                # Determinar modulo de la URL (Ej: '/api/nutricion/save' -> 'nutricion')
+                path_parts = request.path.strip('/').split('/')
+                modulo = None
+                for m in ['nutricion', 'fisioterapia', 'respiratoria']:
+                    if m in path_parts:
+                        modulo = m
+                        break
 
-                    payload = json.loads(request.data) if request.data else {}
-                    user_data = get_user_from_request(request) or {}
-
-                    # Extraccion del UUID generado por el controlador interno
+                if modulo:
+                    # Extraer el UUID de la respuesta (usualmente el backend devuelve el ID creado)
                     res_text = response.get_data(as_text=True)
                     match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', res_text)
                     record_id = match.group(1) if match else None
 
                     if record_id:
+                        from src.models import db
+                        from src.models.registro_model import RegistroAPS
+                        from src.utils.auth_utils import get_user_from_request
+                        
+                        user_data = get_user_from_request(request) or {}
+                        especialista_email = user_data.get('email', 'SISTEMA')
+
+                        # Evitar duplicados en el indice maestro
                         exists = db.session.query(RegistroAPS).filter_by(id=record_id).first()
+                        
                         if not exists:
-                            nuevo_registro = RegistroAPS(
-                                id=record_id,
-                                modulo=modulo.lower(),
-                                codigo_familia=payload.get('codigo_familia', 'N/A'),
-                                nombre_jefe_hogar=payload.get('nombre_jefe', payload.get('nombre_jefe_hogar', 'N/A')),
-                                doc_identidad=payload.get('doc_identidad', '00000000'),
-                                especialista_email=user_data.get('email', 'SISTEMA')
-                            )
-                            db.session.add(nuevo_registro)
-                            db.session.commit()
-                            print(f"[SYNC SUCCESS] Indice Maestro {record_id} consolidado automaticamente.")
+                            # MAPEO DINAMICO DE TABLAS SECUNDARIAS
+                            tabla_origen = ""
+                            if modulo == 'nutricion':
+                                tabla_origen = "formulario_nutricionista"
+                            elif modulo == 'fisioterapia':
+                                tabla_origen = "formulario_fisioterapia"
+                            elif modulo == 'respiratoria':
+                                tabla_origen = "formulario_respiratoria"
+
+                            # Extraccion SQL Nativa desde la tabla origen
+                            sql_query = text(f"SELECT codigo_familia, nombre_jefe_hogar, doc_identidad FROM {tabla_origen} WHERE id = :record_id")
+                            
+                            with db.engine.connect() as conn:
+                                result = conn.execute(sql_query, {"record_id": record_id}).mappings().first()
+                                
+                                if result:
+                                    nuevo_registro = RegistroAPS(
+                                        id=record_id,
+                                        modulo=modulo,
+                                        codigo_familia=result.get('codigo_familia', 'N/A'),
+                                        nombre_jefe_hogar=result.get('nombre_jefe_hogar', 'N/A'),
+                                        doc_identidad=result.get('doc_identidad', '00000000'),
+                                        especialista_email=especialista_email
+                                    )
+                                    db.session.add(nuevo_registro)
+                                    db.session.commit()
+                                    print(f"[SYNC SUCCESS] Indice Maestro consolidado para ID: {record_id}")
+                                else:
+                                    print(f"[SYNC WARNING] El ID {record_id} no se encontro en {tabla_origen}.")
             except Exception as e:
-                print(f"[SYNC ERROR] Falla en el Middleware Interceptor: {str(e)}")
+                print(f"[SYNC CRITICAL ERROR] Falla en el Middleware Interceptor: {str(e)}")
                 from src.models import db
                 db.session.rollback()
-
+                
         return response
 
     # -------------------------------------------------------------------------
@@ -201,7 +226,6 @@ def create_app():
         return response
 
     return app
-
 
 app = create_app()
 
