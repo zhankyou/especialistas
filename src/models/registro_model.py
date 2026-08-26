@@ -6,7 +6,7 @@ from src.models import db
 class RegistroAPS(db.Model):
     """
     Entidad de Dominio para los Registros Clinicos APS.
-    Actualizado para soportar coordenadas geograficas hibridas (Automaticas/Manuales).
+    Implementa patron Soft Delete para cumplimiento de auditoria ISO 27001.
     """
     __tablename__ = 'registros_aps'
 
@@ -17,16 +17,19 @@ class RegistroAPS(db.Model):
     profesional_email = db.Column(db.String(150), nullable=False, index=True)
     estado_sincronizacion = db.Column(db.String(20), default='SINCRONIZADO', nullable=False)
 
-    # Nuevos atributos de Geolocalizacion (Permiten valores nulos si el usuario no los provee)
+    # Geolocalizacion (Type: Float)
     latitud = db.Column(db.Float, nullable=True)
     longitud = db.Column(db.Float, nullable=True)
+
+    # Control de Estado (Soft Delete)
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
 
     observaciones = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     def to_dict(self):
-        """Serializador seguro del objeto relacional."""
+        """Serializador del objeto relacional."""
         return {
             "id": self.id,
             "paciente_nombre": self.paciente_nombre,
@@ -36,6 +39,7 @@ class RegistroAPS(db.Model):
             "estado_sincronizacion": self.estado_sincronizacion,
             "latitud": self.latitud,
             "longitud": self.longitud,
+            "is_deleted": self.is_deleted,
             "observaciones": self.observaciones or "",
             "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else ""
         }
