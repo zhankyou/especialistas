@@ -1,7 +1,6 @@
 import os
 import importlib
 import pkgutil
-import re
 from flask import Flask, redirect, url_for, render_template, request, Blueprint
 from sqlalchemy import inspect, text
 from config.settings import Config
@@ -10,18 +9,17 @@ from src.models import db
 
 def auto_repair_database_schema(app_instance):
     """
-    Motor de auto-reparacion DDL.
-    Asegura que el Indice Maestro (registros_aps) tenga la misma topologia estructural
-    requerida por el Frontend SPA.
+    Motor de Auto-Reparacion DDL Multinivel.
+    Garantiza la inyeccion automatica de la columna 'is_deleted' en todas las tablas
+    del sistema (especialista, registros_aps y las 3 tablas de especialidad)
+    para evitar errores de columna no definida en PostgreSQL Aiven.
     """
     with app_instance.app_context():
         try:
             inspector = inspect(db.engine)
 
-            # 1. Validacion Tabla Especialistas
-            table_especialista = 'especialista'
-            if inspector.has_table(table_especialista):
-                existing_columns = [col['name'] for col in inspector.get_columns(table_especialista)]
+            if inspector.has_table('especialista'):
+                existing_columns = [col['name'] for col in inspector.get_columns('especialista')]
                 required_columns = {
                     'nombre': "VARCHAR(150) DEFAULT 'Profesional APS'",
                     'is_active': 'BOOLEAN DEFAULT TRUE',
@@ -32,43 +30,39 @@ def auto_repair_database_schema(app_instance):
                     'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
                     'updated_at': 'TIMESTAMP'
                 }
-
                 with db.engine.connect() as conn:
-                    for col_name, col_definition in required_columns.items():
+                    for col_name, col_def in required_columns.items():
                         if col_name not in existing_columns:
-                            print(f"[AUTO-REPAIR CLOUD] Inyectando columna {col_name} en {table_especialista}")
-                            conn.execute(text(f"ALTER TABLE {table_especialista} ADD COLUMN {col_name} {col_definition};"))
+                            print(f"[AUTO-REPAIR CLOUD] Inyectando columna {col_name} en especialista")
+                            conn.execute(text(f"ALTER TABLE especialista ADD COLUMN {col_name} {col_def};"))
                     conn.commit()
 
-            # 2. Validacion Indice Maestro (registros_aps)
-            table_registros = 'registros_aps'
-            if inspector.has_table(table_registros):
-                existing_cols_reg = [col['name'] for col in inspector.get_columns(table_registros)]
-                required_cols_reg = {
-                    'modulo': "VARCHAR(50) DEFAULT 'general'",
-                    'codigo_familia': "VARCHAR(50) DEFAULT 'N/A'",
-                    'nombre_jefe_hogar': "VARCHAR(150) DEFAULT 'N/A'",
-                    'doc_identidad': "VARCHAR(50) DEFAULT '00000000'",
-                    'especialista_email': "VARCHAR(150) DEFAULT 'N/A'",
-                    'fecha_visita': "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-                    'is_deleted': "BOOLEAN DEFAULT FALSE NOT NULL"
-                }
-                with db.engine.connect() as conn:
-                    for c_name, c_def in required_cols_reg.items():
-                        if c_name not in existing_cols_reg:
-                            print(f"[AUTO-REPAIR CLOUD] Inyectando atributo: {c_name} en {table_registros}")
-                            conn.execute(text(f"ALTER TABLE {table_registros} ADD COLUMN {c_name} {c_def};"))
-                    conn.commit()
+            target_tables = ['formulario_nutricionista', 'formulario_fisioterapia', 'formulario_respiratoria', 'registros_aps']
+
+            for table_name in target_tables:
+                if inspector.has_table(table_name):
+                    existing_cols = [col['name'] for col in inspector.get_columns(table_name)]
+                    with db.engine.connect() as conn:
+                        if 'is_deleted' not in existing_cols:
+                            print(f"[AUTO-REPAIR CLOUD] Inyectando atributo is_deleted en {table_name}")
+                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE NOT NULL;"))
+                        if 'created_at' not in existing_cols:
+                            print(f"[AUTO-REPAIR CLOUD] Inyectando atributo created_at en {table_name}")
+                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                        conn.commit()
 
             db.create_all()
-            print("[AUTO-REPAIR SUCCESS] Estructuras validadas en PostgreSQL Aiven.")
+            print("[AUTO-REPAIR SUCCESS] Todas las tablas de especialidad han sido sincronizadas en Aiven.")
 
         except Exception as e:
-            print(f"[CRITICAL DB ERROR] Fallo de comunicacion con Aiven Cloud: {str(e)}")
+            print(f"[CRITICAL DB ERROR] Fallo durante la ejecucion de DDL Auto-Repair: {str(e)}")
 
 
 def auto_discover_blueprints(app_instance):
-    """Auto-Discovery de Controladores (SOLID: Open/Closed Principle)"""
+    """
+    Patron Auto-Discovery (SOLID: Open/Closed Principle).
+    Carga dinamicamente todos los Blueprints dentro del paquete src.controllers.
+    """
     import src.controllers
 
     print("[ROUTER INIT] Iniciando escaneo de controladores API...")
@@ -95,83 +89,6 @@ def create_app():
     auto_discover_blueprints(app)
     auto_repair_database_schema(app)
 
-    # -------------------------------------------------------------------------
-    # MIDDLEWARE ARQUITECTÓNICO DE SINCRONIZACIÓN PROFUNDA (INTERCEPTOR)
-    # -------------------------------------------------------------------------
-    @app.after_request
-    def sync_master_record(response):
-        """
-        Escucha peticiones de guardado exitosas. Extrae el UUID generado
-        y consulta DIRECTAMENTE la tabla de la especialidad correspondiente 
-        para poblar el Indice Maestro (registros_aps) sin depender del Payload HTTP.
-        """
-        if request.method == 'POST' and '/save' in request.path and response.status_code == 200:
-            try:
-                # Determinar modulo de la URL (Ej: '/api/nutricion/save' -> 'nutricion')
-                path_parts = request.path.strip('/').split('/')
-                modulo = None
-                for m in ['nutricion', 'fisioterapia', 'respiratoria']:
-                    if m in path_parts:
-                        modulo = m
-                        break
-
-                if modulo:
-                    # Extraer el UUID de la respuesta (usualmente el backend devuelve el ID creado)
-                    res_text = response.get_data(as_text=True)
-                    match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', res_text)
-                    record_id = match.group(1) if match else None
-
-                    if record_id:
-                        from src.models import db
-                        from src.models.registro_model import RegistroAPS
-                        from src.utils.auth_utils import get_user_from_request
-                        
-                        user_data = get_user_from_request(request) or {}
-                        especialista_email = user_data.get('email', 'SISTEMA')
-
-                        # Evitar duplicados en el indice maestro
-                        exists = db.session.query(RegistroAPS).filter_by(id=record_id).first()
-                        
-                        if not exists:
-                            # MAPEO DINAMICO DE TABLAS SECUNDARIAS
-                            tabla_origen = ""
-                            if modulo == 'nutricion':
-                                tabla_origen = "formulario_nutricionista"
-                            elif modulo == 'fisioterapia':
-                                tabla_origen = "formulario_fisioterapia"
-                            elif modulo == 'respiratoria':
-                                tabla_origen = "formulario_respiratoria"
-
-                            # Extraccion SQL Nativa desde la tabla origen
-                            sql_query = text(f"SELECT codigo_familia, nombre_jefe_hogar, doc_identidad FROM {tabla_origen} WHERE id = :record_id")
-                            
-                            with db.engine.connect() as conn:
-                                result = conn.execute(sql_query, {"record_id": record_id}).mappings().first()
-                                
-                                if result:
-                                    nuevo_registro = RegistroAPS(
-                                        id=record_id,
-                                        modulo=modulo,
-                                        codigo_familia=result.get('codigo_familia', 'N/A'),
-                                        nombre_jefe_hogar=result.get('nombre_jefe_hogar', 'N/A'),
-                                        doc_identidad=result.get('doc_identidad', '00000000'),
-                                        especialista_email=especialista_email
-                                    )
-                                    db.session.add(nuevo_registro)
-                                    db.session.commit()
-                                    print(f"[SYNC SUCCESS] Indice Maestro consolidado para ID: {record_id}")
-                                else:
-                                    print(f"[SYNC WARNING] El ID {record_id} no se encontro en {tabla_origen}.")
-            except Exception as e:
-                print(f"[SYNC CRITICAL ERROR] Falla en el Middleware Interceptor: {str(e)}")
-                from src.models import db
-                db.session.rollback()
-                
-        return response
-
-    # -------------------------------------------------------------------------
-    # ENRUTADOR MAESTRO DE VISTAS FRONTEND (SPA RENDERING)
-    # -------------------------------------------------------------------------
     @app.route('/')
     def index():
         return redirect(url_for('login_page'))
@@ -226,6 +143,7 @@ def create_app():
         return response
 
     return app
+
 
 app = create_app()
 
