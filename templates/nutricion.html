@@ -4,18 +4,62 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="/static/css/nutricion.css">
+<style>
+    .view-mode-banner {
+        display: none;
+        background: #0284c7;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: 600;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .view-mode-banner.active { display: flex; }
+    .action-bar-footer {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        justify-content: flex-end;
+    }
+    .btn-view-action {
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    .btn-back { background: #64748b; color: white; }
+    .btn-back:hover { background: #475569; }
+    .btn-edit-mode { background: #f59e0b; color: white; }
+    .btn-edit-mode:hover { background: #d97706; }
+</style>
 {% endblock %}
 
 {% block header_title %}VALORACIÓN NUTRICIONAL APS{% endblock %}
 
 {% block content %}
+<!-- Banner Informativo para Modo Solo Lectura -->
+<div id="view-mode-banner" class="view-mode-banner">
+    <span><i class="fas fa-eye"></i> MODO VISUALIZACIÓN: Este expediente se encuentra bloqueado para lectura.</span>
+    <span id="view-record-id" style="font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;"></span>
+</div>
+
 <form id="nutricion-form" class="form-container">
 
     <div class="section-title">1. Datos Generales de la Visita e Identificación (Estandarizado)</div>
     <div class="form-grid">
         <div class="form-group"><label>Fecha de Visita</label><input type="date" id="fecha_visita" class="form-control" required></div>
+
         <div class="form-group"><label>Territorio</label><select id="territorio" class="form-control" required></select></div>
         <div class="form-group"><label>Microterritorio</label><select id="microterritorio" class="form-control" required></select></div>
+
         <div class="form-group"><label>Código Familia</label><input type="text" id="codigo_familia" class="form-control" pattern="^F\d{4}$" maxlength="5" placeholder="Ej: F0001" required></div>
         <div class="form-group"><label>Municipio / Vereda</label><input type="text" id="municipio" class="form-control" value="Villavicencio" required></div>
         <div class="form-group"><label>Barrio / Sector</label><input type="text" id="barrio" class="form-control" required></div>
@@ -32,12 +76,31 @@
             <small id="geo-status" style="display:block; margin-top:5px; font-weight:bold;"></small>
         </div>
 
-        <div class="form-group"><label>Nombre Nutricionista</label><input type="text" id="nombre_nutricionista" class="form-control" required></div>
-        <div class="form-group"><label>Registro Profesional</label><input type="text" id="reg_profesional" class="form-control" required></div>
+        <div class="form-group">
+            <label>Nombre Nutricionista</label>
+            <select id="nombre_nutricionista" class="form-control" required>
+                <option value="">Cargando especialistas DILIGENCIADOR...</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Registro Profesional</label>
+            <input type="text" id="reg_profesional" class="form-control" pattern="^[0-9]{1,10}$" maxlength="10" inputmode="numeric" placeholder="Ej: 1234567890" required>
+        </div>
+
         <div class="form-group"><label>Nombre Jefe de Hogar</label><input type="text" id="nombre_jefe" class="form-control" required></div>
         <div class="form-group"><label>Doc. Identidad Jefe</label><input type="text" id="doc_identidad" class="form-control" required></div>
-        <div class="form-group"><label>Teléfono Contacto</label><input type="text" id="telefono" class="form-control" required></div>
-        <div class="form-group"><label>Total Integrantes</label><input type="number" id="total_integrantes" class="form-control" required></div>
+
+        <div class="form-group">
+            <label>Teléfono Contacto</label>
+            <input type="text" id="telefono" class="form-control" pattern="^[0-9]{10}$" maxlength="10" inputmode="numeric" placeholder="Ej: 3001234567" required>
+        </div>
+
+        <div class="form-group">
+            <label>Total Integrantes (1 a 20)</label>
+            <input type="number" id="total_integrantes" class="form-control" min="1" max="20" placeholder="Ej: 4" required>
+        </div>
+
         <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
     </div>
 
@@ -112,7 +175,6 @@
         </div>
     </div>
 
-    <!-- CORRECCIÓN UI: Restauración de los botones de limpieza y captura C.C. -->
     <div class="signatures-grid" style="margin-top: 30px;">
         <div class="signature-box">
             <label>Firma Profesional Nutrición</label>
@@ -134,7 +196,14 @@
         </div>
     </div>
 
-    <button type="submit" class="submit-btn"><i class="fas fa-save"></i> Guardar y Generar Registro</button>
+    <!-- Botonera Transaccional Estándar -->
+    <button type="submit" id="submit-btn" class="submit-btn"><i class="fas fa-save"></i> Guardar y Generar Registro</button>
+
+    <!-- Barra de Acciones para Modo Solo Lectura (Read-Only) -->
+    <div id="view-mode-actions" class="action-bar-footer" style="display: none;">
+        <button type="button" id="btn-back-registros" class="btn-view-action btn-back"><i class="fas fa-arrow-left"></i> Volver a Registros</button>
+        <button type="button" id="btn-enable-edit" class="btn-view-action btn-edit-mode"><i class="fas fa-edit"></i> Habilitar Edición</button>
+    </div>
 </form>
 {% endblock %}
 
