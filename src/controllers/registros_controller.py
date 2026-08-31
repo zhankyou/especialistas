@@ -9,8 +9,7 @@ registros_bp = Blueprint('registros_bp', __name__)
 @registros_bp.route('/api/registros/list', methods=['GET'])
 def list_registros():
     """
-    Endpoint principal RESTful para la vista unificada de expedientes.
-    Soporta filtros de Soft Delete, busqueda en tiempo real y RBAC.
+    Endpoint RESTful para el listado consolidado de expedientes clinicos.
     """
     user_data = get_user_from_request(request)
     if not user_data:
@@ -20,6 +19,19 @@ def list_registros():
     search_query = request.args.get('search', '').strip()
 
     result = RegistrosService.get_all_records(user_data, is_deleted=is_deleted, search_query=search_query)
+    return jsonify(result), result['code']
+
+
+@registros_bp.route('/api/registros/detalle/<modulo>/<record_id>', methods=['GET'])
+def get_detalle_registro(modulo, record_id):
+    """
+    Endpoint RESTful para extraer la totalidad de campos de un formulario y permitir su visualizacion completa.
+    """
+    user_data = get_user_from_request(request)
+    if not user_data:
+        return jsonify({"status": "error", "message": "Autenticacion requerida."}), 401
+
+    result = RegistrosService.get_record_detail(modulo, record_id, user_data)
     return jsonify(result), result['code']
 
 
@@ -47,7 +59,7 @@ def restore_registro(record_id):
 
 @registros_bp.route('/api/registros/request_restore', methods=['POST'])
 def request_restore():
-    """Despacha notificacion asincrona push a Telegram para autorizar restauracion."""
+    """Despacha notificacion push a Telegram para autorizar restauracion."""
     user_data = get_user_from_request(request)
     if not user_data:
         return jsonify({"status": "error", "message": "Autenticacion requerida."}), 401
