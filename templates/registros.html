@@ -7,7 +7,7 @@
     .registros-container { display: flex; flex-direction: column; gap: 20px; }
 
     /* ===================================================================== */
-    /* ARQUITECTURA UI: Contenedor Principal Responsivo (Corrección Flexbox) */
+    /* ARQUITECTURA UI: Contenedor Principal Responsivo                       */
     /* ===================================================================== */
     .registros-header {
         display: flex;
@@ -18,12 +18,10 @@
         border-radius: 8px;
         border: 1px solid var(--border);
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        gap: 20px; /* Espaciado base estricto */
+        gap: 20px;
     }
 
-    .header-text {
-        flex: 1; /* Ocupa el espacio remanente sin forzar alturas */
-    }
+    .header-text { flex: 1; }
 
     .header-actions {
         display: flex;
@@ -43,7 +41,6 @@
     .search-box button { background: var(--navy); color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; transition: 0.3s; font-weight: 600; white-space: nowrap; }
     .search-box button:hover { background: #1e293b; }
 
-    /* Estilo del Botón de Exportar Superior */
     .btn-export { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: all 0.3s; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
     .btn-export:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
 
@@ -66,6 +63,7 @@
 
     .action-btns { display: flex; gap: 6px; }
     .btn-icon { border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: white; transition: all 0.2s; font-size: 0.85rem; }
+    .btn-view { background: #0284c7; } .btn-view:hover { background: #0369a1; transform: translateY(-2px); }
     .btn-pdf { background: #0ea5e9; } .btn-pdf:hover { background: #0284c7; transform: translateY(-2px); }
     .btn-edit { background: #f59e0b; } .btn-edit:hover { background: #d97706; transform: translateY(-2px); }
     .btn-del { background: #ef4444; } .btn-del:hover { background: #dc2626; transform: translateY(-2px); }
@@ -79,20 +77,25 @@
 
     .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
 
-    /* Modal de Exportación */
+    /* Modales Estructurados Glassmorphism */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); z-index: 1000; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
     .modal-overlay.active { display: flex; opacity: 1; }
 
-    .modal-content { background: #ffffff; border-radius: 16px; width: 90%; max-width: 520px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: translateY(-30px); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; }
+    .modal-content { background: #ffffff; border-radius: 16px; width: 90%; max-width: 820px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: translateY(-30px); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; max-height: 85vh; display: flex; flex-direction: column; }
     .modal-overlay.active .modal-content { transform: translateY(0); }
 
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 30px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
     .modal-header h3 { margin: 0; color: var(--navy); font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
     .modal-header h3 i { color: var(--teal); background: #ccfbf1; padding: 10px; border-radius: 50%; font-size: 1.1rem; }
     .close-modal { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; color: #64748b; transition: all 0.2s; }
     .close-modal:hover { color: white; background: #ef4444; }
 
-    .modal-body { padding: 30px; max-height: 70vh; overflow-y: auto; }
+    .modal-body { padding: 25px 28px; overflow-y: auto; flex: 1; }
+
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 15px; }
+    .detail-item { background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .detail-item label { display: block; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+    .detail-item span { font-size: 0.9rem; color: #1e293b; font-weight: 600; word-break: break-word; }
 
     .modern-label { display: block; font-weight: 600; color: #334155; margin-bottom: 8px; font-size: 0.95rem; }
     .modern-input { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background-color: #fff; font-family: 'Sora', sans-serif; font-size: 0.95rem; color: #1e293b; transition: all 0.2s ease; box-sizing: border-box; }
@@ -107,58 +110,22 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    .modal-footer { padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+    .modal-footer { padding: 18px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
 
-    .btn-modern-cancel { background: white; border: 1px solid #cbd5e1; color: #475569; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Sora', sans-serif; }
+    .btn-modern-cancel { background: white; border: 1px solid #cbd5e1; color: #475569; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Sora', sans-serif; }
     .btn-modern-cancel:hover { background: #f1f5f9; color: #1e293b; }
 
-    .btn-modern-primary { background: linear-gradient(135deg, var(--navy) 0%, #1e3a8a 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; font-family: 'Sora', sans-serif; box-shadow: 0 4px 6px rgba(30, 58, 138, 0.3); }
+    .btn-modern-primary { background: linear-gradient(135deg, var(--navy) 0%, #1e3a8a 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; font-family: 'Sora', sans-serif; box-shadow: 0 4px 6px rgba(30, 58, 138, 0.3); }
     .btn-modern-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.4); }
-    .btn-modern-primary:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none; }
 
-    /* ===================================================================== */
-    /* RESPONSIVE MEDIA QUERIES (Corrección de Overflow y Empty Space)       */
-    /* ===================================================================== */
     @media (max-width: 768px) {
-        .registros-header {
-            flex-direction: column;
-            align-items: stretch;  /* Fuerza a los hijos a ocupar el ancho total */
-            gap: 15px;             /* Cierra la brecha excesiva */
-            padding: 20px;
-        }
-
-        .header-text {
-            flex: none; /* Evita crecimientos descontrolados */
-            margin-bottom: 5px; /* Pequeño respiro hacia los controles */
-        }
-
-        .header-actions {
-            flex-direction: column;
-            align-items: stretch; /* Empaqueta el buscador y el botón verticalmente */
-            width: 100%;
-            gap: 10px;
-        }
-
-        .search-box {
-            max-width: 100%;
-            width: 100%;
-        }
-
-        .btn-export {
-            width: 100%;
-            margin-left: 0;
-            justify-content: center; /* Centra el icono y el texto */
-        }
-
-        /* Ajustes adicionales para el modal en móviles */
-        .modal-footer {
-            flex-direction: column-reverse;
-        }
-
-        .btn-modern-cancel, .btn-modern-primary {
-            width: 100%;
-            justify-content: center;
-        }
+        .registros-header { flex-direction: column; align-items: stretch; gap: 15px; padding: 20px; }
+        .header-text { flex: none; margin-bottom: 5px; }
+        .header-actions { flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }
+        .search-box { max-width: 100%; width: 100%; }
+        .btn-export { width: 100%; margin-left: 0; justify-content: center; }
+        .modal-footer { flex-direction: column-reverse; }
+        .btn-modern-cancel, .btn-modern-primary { width: 100%; justify-content: center; }
     }
 </style>
 {% endblock %}
@@ -168,7 +135,6 @@
 {% block content %}
 <div class="registros-container">
 
-    <!-- ARQUITECTURA UI: Contenedor Semántico -->
     <div class="registros-header">
         <div class="header-text">
             <h3 style="margin:0; color:var(--navy); font-size:1.4rem;">Base de Datos APS</h3>
@@ -176,7 +142,7 @@
         </div>
         <div class="header-actions">
             <form id="search-form" class="search-box">
-                <input type="text" id="search-input" placeholder="Buscar por Código Familia, Jefe u ID...">
+                <input type="text" id="search-input" placeholder="Buscar por Visita N°, Código Familia, Jefe u ID...">
                 <button type="submit"><i class="fas fa-search"></i> Buscar</button>
             </form>
             <button id="btn-open-export" class="btn-export" type="button"><i class="fas fa-file-csv"></i> Descargar Datos</button>
@@ -194,6 +160,7 @@
                 <tr>
                     <th>Fecha Registro</th>
                     <th>Módulo / Especialidad</th>
+                    <th>Familia Visita N°</th>
                     <th>Código Familia</th>
                     <th>Jefe de Hogar</th>
                     <th>Especialista</th>
@@ -201,19 +168,35 @@
                 </tr>
             </thead>
             <tbody id="table-body">
-                <tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Cargando expedientes...</td></tr>
+                <tr><td colspan="7" class="empty-state"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Cargando expedientes...</td></tr>
             </tbody>
         </table>
     </div>
 
 </div>
 
-<!-- Toast Notificator -->
+<!-- Toast Notification -->
 <div id="toast-notification" class="toast-msg"><i class="fas fa-check-circle" style="color:#10b981;"></i> ID Copiado exitosamente</div>
 
-<!-- Modal de Exportación Glassmorphism -->
-<div id="export-modal" class="modal-overlay">
+<!-- Modal de Visualizacion Completa de Formulario -->
+<div id="detail-modal" class="modal-overlay">
     <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-medical"></i> Detalle Completo del Expediente</h3>
+            <button id="btn-close-detail" class="close-modal" type="button" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="detail-modal-body" class="modal-body">
+            <p style="text-align:center; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Cargando datos del expediente...</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="btn-cancel-detail" class="btn-modern-cancel">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Exportación -->
+<div id="export-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
             <h3><i class="fas fa-cloud-download-alt"></i> Descargar Base de Datos</h3>
             <button id="btn-close-export" class="close-modal" type="button" aria-label="Cerrar"><i class="fas fa-times"></i></button>
@@ -223,11 +206,11 @@
                 <div class="form-group">
                     <label class="modern-label" for="export_filter_type">Parámetro de Filtrado Global:</label>
                     <select id="export_filter_type" class="modern-input">
-                        <option value="todo">📊 Toda la base de datos (Completa)</option>
-                        <option value="mes">📅 Por Mes Específico</option>
-                        <option value="rango">⏳ Por Rango de Fechas (Desde - Hasta)</option>
-                        <option value="especialista">👨‍⚕️ Por Email de Especialista</option>
-                        <option value="especialidad">🏥 Por Especialidad (Módulo)</option>
+                        <option value="todo">Toda la base de datos (Completa)</option>
+                        <option value="mes">Por Mes Específico</option>
+                        <option value="rango">Por Rango de Fechas (Desde - Hasta)</option>
+                        <option value="especialista">Por Email de Especialista</option>
+                        <option value="especialidad">Por Especialidad (Módulo)</option>
                     </select>
                 </div>
 
@@ -258,9 +241,9 @@
                 <div id="opt-especialidad" class="export-option-group">
                     <label class="modern-label" for="exp_modulo"><i class="fas fa-stethoscope" style="color:var(--teal);"></i> Módulo a Exportar:</label>
                     <select id="exp_modulo" class="modern-input">
-                        <option value="NUTRICIÓN">🍎 Valoración Nutricional</option>
-                        <option value="RESPIRATORIA">🫁 Terapia Respiratoria</option>
-                        <option value="FISIOTERAPIA">🏃 Fisioterapia y Movilidad</option>
+                        <option value="nutricion">Valoración Nutricional</option>
+                        <option value="respiratoria">Terapia Respiratoria</option>
+                        <option value="fisioterapia">Fisioterapia y Movilidad</option>
                     </select>
                 </div>
             </div>
