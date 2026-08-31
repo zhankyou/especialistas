@@ -1,7 +1,7 @@
 /**
  * CORE REGISTROS ENGINE - APS ESE 2026
  * Arquitectura: ES6 Class Pattern (SOLID: Single Responsibility Principle)
- * Responsabilidades: Renderizado SPA, Seguridad XSS, Peticiones asincronas y BLOB Streaming.
+ * Funcionalidad: Renderizado dinámico, consumo de API con JWT estricto y descarga de BLOBs (PDF).
  */
 
 class RegistrosEngine {
@@ -16,6 +16,9 @@ class RegistrosEngine {
         this.exportModal = document.getElementById('export-modal');
         this.filterSelect = document.getElementById('export_filter_type');
         this.exportForm = document.getElementById('export-form');
+
+        this.detailModal = document.getElementById('detail-modal');
+        this.detailModalBody = document.getElementById('detail-modal-body');
 
         this.searchTimeout = null;
     }
@@ -49,15 +52,21 @@ class RegistrosEngine {
         }
 
         const btnOpen = document.getElementById('btn-open-export');
-        const btnClose = document.getElementById('btn-close-export');
-        const btnCancel = document.getElementById('btn-cancel-export');
+        const btnCloseExport = document.getElementById('btn-close-export');
+        const btnCancelExport = document.getElementById('btn-cancel-export');
 
         if (btnOpen) btnOpen.addEventListener('click', () => this.exportModal.classList.add('active'));
-        if (btnClose) btnClose.addEventListener('click', () => this.exportModal.classList.remove('active'));
-        if (btnCancel) btnCancel.addEventListener('click', () => this.exportModal.classList.remove('active'));
+        if (btnCloseExport) btnCloseExport.addEventListener('click', () => this.exportModal.classList.remove('active'));
+        if (btnCancelExport) btnCancelExport.addEventListener('click', () => this.exportModal.classList.remove('active'));
+
+        const btnCloseDetail = document.getElementById('btn-close-detail');
+        const btnCancelDetail = document.getElementById('btn-cancel-detail');
+        if (btnCloseDetail) btnCloseDetail.addEventListener('click', () => this.detailModal.classList.remove('active'));
+        if (btnCancelDetail) btnCancelDetail.addEventListener('click', () => this.detailModal.classList.remove('active'));
 
         window.addEventListener('click', (e) => {
             if (e.target === this.exportModal) this.exportModal.classList.remove('active');
+            if (e.target === this.detailModal) this.detailModal.classList.remove('active');
         });
 
         if (this.filterSelect) {
@@ -91,7 +100,7 @@ class RegistrosEngine {
         if (!this.tableBody) return;
 
         const searchTerm = this.searchInput ? this.searchInput.value.trim() : '';
-        this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="text-align:center;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Consolidando expedientes desde PostgreSQL Aiven...</td></tr>';
+        this.tableBody.innerHTML = '<tr><td colspan="7" class="empty-state" style="text-align:center;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Consolidando expedientes desde PostgreSQL Aiven...</td></tr>';
 
         try {
             const url = `/api/registros/list?deleted=${this.isDeletedView}&search=${encodeURIComponent(searchTerm)}`;
@@ -108,11 +117,11 @@ class RegistrosEngine {
             if (response.ok && data.status === 'success') {
                 this.renderTable(data.data);
             } else {
-                this.tableBody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:#dc2626; text-align:center;">Error del Servidor: ${this.sanitizeHTML(data.message)}</td></tr>`;
+                this.tableBody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:#dc2626; text-align:center;">Error del Servidor: ${this.sanitizeHTML(data.message)}</td></tr>`;
             }
         } catch (error) {
             console.error('[NETWORK ERROR]', error);
-            this.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:#dc2626; text-align:center;">Fallo de conexion con la Base de Datos.</td></tr>';
+            this.tableBody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:#dc2626; text-align:center;">Fallo de conexión con la Base de Datos.</td></tr>';
         }
     }
 
@@ -120,7 +129,7 @@ class RegistrosEngine {
         this.tableBody.innerHTML = '';
 
         if (!records || records.length === 0) {
-            this.tableBody.innerHTML = `<tr><td colspan="6" class="empty-state" style="text-align:center; color:#64748b;"><i class="fas fa-folder-open fa-2x"></i><br><br>No se encontraron expedientes registrados.</td></tr>`;
+            this.tableBody.innerHTML = `<tr><td colspan="7" class="empty-state" style="text-align:center; color:#64748b;"><i class="fas fa-folder-open fa-2x"></i><br><br>No se encontraron expedientes registrados.</td></tr>`;
             return;
         }
 
@@ -128,6 +137,7 @@ class RegistrosEngine {
             const safeId = this.sanitizeHTML(rec.id);
             const safeModulo = this.sanitizeHTML(rec.modulo || 'general').toLowerCase();
             const safeFecha = this.sanitizeHTML(rec.fecha_visita);
+            const safeVisitaNo = this.sanitizeHTML(rec.familia_visita_no || '01');
             const safeCodigo = this.sanitizeHTML(rec.codigo_familia);
             const safeNombre = this.sanitizeHTML(rec.nombre_jefe_hogar);
             const safeDoc = this.sanitizeHTML(rec.doc_identidad);
@@ -138,13 +148,14 @@ class RegistrosEngine {
 
             if (!this.isDeletedView) {
                 actionButtons = `
+                    <button class="btn-icon btn-view" title="Visualizar Formulario Completo" onclick="window.Engine.viewDetail('${safeModulo}', '${safeId}')"><i class="fas fa-eye"></i></button>
                     <button class="btn-icon btn-pdf" title="Descargar PDF" onclick="window.Engine.downloadPdf('${safeModulo}', '${safeId}')"><i class="fas fa-file-pdf"></i></button>
                     <button class="btn-icon btn-edit" title="Editar Expediente" onclick="window.Engine.editRecord('${safeModulo}', '${safeId}')"><i class="fas fa-edit"></i></button>
                     <button class="btn-icon btn-del" title="Mover a Papelera" onclick="window.Engine.toggleDelete('${safeId}', true)"><i class="fas fa-trash-alt"></i></button>
                 `;
             } else {
                 if (this.userRole !== 'ADMINISTRADOR' && this.userRole !== 'COORDINADOR') {
-                    actionButtons = `<button class="btn-icon" style="background:#f59e0b; color:white;" title="Solicitar Restauracion" onclick="window.Engine.requestRestore('${safeId}')"><i class="fas fa-paper-plane"></i> Solicitar</button>`;
+                    actionButtons = `<button class="btn-icon" style="background:#f59e0b; color:white;" title="Solicitar Restauración" onclick="window.Engine.requestRestore('${safeId}')"><i class="fas fa-paper-plane"></i> Solicitar</button>`;
                 } else {
                     actionButtons = `<button class="btn-icon btn-restore" title="Restaurar Expediente" onclick="window.Engine.toggleDelete('${safeId}', false)"><i class="fas fa-undo"></i> Restaurar</button>`;
                 }
@@ -160,13 +171,24 @@ class RegistrosEngine {
                     </span>
                 </td>
                 <td><span class="badge-mod ${badgeClass}">${safeModulo.toUpperCase()}</span></td>
-                <td style="font-family:monospace; font-size:1rem; font-weight:bold; color:var(--navy);">${safeCodigo}</td>
+                <td style="font-family:monospace; font-size:0.95rem; font-weight:bold; color:#0284c7; text-align:center;">${safeVisitaNo}</td>
+                <td style="font-family:monospace; font-size:0.95rem; font-weight:bold; color:var(--navy);">${safeCodigo}</td>
                 <td>${safeNombre}<br><span style="font-size:0.75rem; color:#888;">Doc. ${safeDoc}</span></td>
                 <td>${safeEmail}</td>
                 <td style="text-align:center;"><div class="action-btns" style="justify-content:center;">${actionButtons}</div></td>
             `;
             this.tableBody.appendChild(tr);
         });
+    }
+
+    viewDetail(modulo, id) {
+        const rutaMap = {
+            'nutricion': '/nutricion',
+            'respiratoria': '/respiratoria',
+            'fisioterapia': '/fisioterapia'
+        };
+        const ruta = rutaMap[modulo.toLowerCase()] || '/dashboard';
+        window.location.href = `${ruta}?view_id=${id}`;
     }
 
     handleExport(e) {
@@ -215,7 +237,7 @@ class RegistrosEngine {
         })
         .catch(err => {
             console.error('[EXPORT ERROR]', err);
-            alert("No se pudo generar el archivo de exportacion.");
+            alert("No se pudo generar el archivo de exportación.");
         })
         .finally(() => {
             submitBtn.disabled = false;
@@ -254,8 +276,54 @@ class RegistrosEngine {
         }).catch(err => console.error('[CLIPBOARD ERROR]', err));
     }
 
-    downloadPdf(modulo, id) {
-        window.open(`/api/${modulo}/${id}/pdf`, '_blank');
+    /**
+     * Solución Definitiva de HTTP 401 Unauthorized (OWASP A01).
+     * Descarga y gestiona el PDF de forma asíncrona inyectando el Bearer Token.
+     */
+    async downloadPdf(modulo, id) {
+        const url = `/api/${modulo}/${id}/pdf`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                alert(`Error al descargar el PDF: ${errData.message || 'Fallo de acceso'}`);
+                return;
+            }
+
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = blobUrl;
+
+            // Extracción nativa del nombre de archivo desde los encabezados HTTP
+            let filename = `APS_${modulo.toUpperCase()}_${id.split('-')[0]}.pdf`;
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition && disposition.indexOf('filename=') !== -1) {
+                const matches = /filename="([^"]+)"/.exec(disposition);
+                if (matches != null && matches[1]) {
+                    filename = matches[1];
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            window.URL.revokeObjectURL(blobUrl);
+            a.remove();
+        } catch (err) {
+            console.error('[PDF BLOB ERROR]', err);
+            alert('Fallo de red al intentar comunicarse con el motor de renderizado PDF.');
+        }
     }
 
     editRecord(modulo, id) {
@@ -269,7 +337,7 @@ class RegistrosEngine {
     }
 
     async requestRestore(id) {
-        if (!confirm('¿Desea enviar una solicitud oficial por Telegram a Coordinacion para restaurar este expediente?')) return;
+        if (!confirm('¿Desea enviar una solicitud oficial por Telegram a Coordinación para restaurar este expediente?')) return;
 
         try {
             const response = await fetch('/api/registros/request_restore', {
@@ -290,7 +358,7 @@ class RegistrosEngine {
 
     async toggleDelete(id, deleteFlag) {
         const actionText = deleteFlag ? "mover a la papelera" : "restaurar";
-        if (!confirm(`¿Esta seguro de ${actionText} este expediente?`)) return;
+        if (!confirm(`¿Está seguro de ${actionText} este expediente?`)) return;
 
         const url = deleteFlag ? `/api/registros/delete/${id}` : `/api/registros/restore/${id}`;
         const method = deleteFlag ? 'DELETE' : 'POST';
@@ -308,7 +376,7 @@ class RegistrosEngine {
                 this.fetchRegistros();
             } else {
                 const data = await response.json();
-                alert(`Fallo en la operacion: ${data.message}`);
+                alert(`Fallo en la operación: ${data.message}`);
             }
         } catch (err) {
             console.error('[NETWORK ERROR]', err);
