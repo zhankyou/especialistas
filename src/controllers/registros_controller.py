@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, make_response
 from src.services.registros_service import RegistrosService
 from src.services.telegram_service import TelegramService
 from src.utils.auth_utils import get_user_from_request
@@ -84,21 +84,22 @@ def request_restore():
 
 @registros_bp.route('/api/registros/export', methods=['GET'])
 def export_registros():
-    """Genera y transmite un Stream CSV con sanitizacion de caracteres."""
+    """Genera y transmite dinamicamente Streams CSV o ZIP en base al esquema DDL de la DB."""
     user_data = get_user_from_request(request)
     if not user_data:
         return jsonify({"status": "error", "message": "Autenticacion requerida."}), 401
 
-    filter_type = request.args.get('filtro', 'todo')
-    p1 = request.args.get('p1', '')
-    p2 = request.args.get('p2', '')
+    filter_type = request.args.get('filtro', 'todo').strip().lower()
+    p1 = request.args.get('p1', '').strip()
+    p2 = request.args.get('p2', '').strip()
 
-    csv_data = RegistrosService.export_csv(user_data, filter_type, p1, p2)
-    if csv_data is None:
-        return jsonify({"status": "error", "message": "Fallo al generar reporte CSV."}), 500
+    file_bytes, filename, mimetype = RegistrosService.export_csv(user_data, filter_type, p1, p2)
 
-    return Response(
-        csv_data,
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=APS_Export_Expedientes.csv"}
-    )
+    if file_bytes is None:
+        return jsonify({"status": "warning", "message": filename}), 404
+
+    response = make_response(file_bytes)
+    response.headers['Content-Type'] = mimetype
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
