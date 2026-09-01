@@ -22,28 +22,21 @@ class RegistrosService:
 
     @classmethod
     def _build_table_select(cls, table_name: str, modulo_name: str, existing_cols: set) -> str:
-        visita_no_expr = cls._resolve_column(existing_cols,
-                                             ['familia_visita_no', 'visita_no', 'no_visita', 'familia_visita'], "'01'")
-        codigo_fam_expr = cls._resolve_column(existing_cols, ['codigo_familia', 'cod_familia', 'familia_codigo'],
-                                              "'N/A'")
-        jefe_expr = cls._resolve_column(existing_cols,
-                                        ['nombre_jefe_hogar', 'nombre_jefe', 'nombre_jefe_familia', 'jefe_hogar'],
-                                        "'N/A'")
-        doc_expr = cls._resolve_column(existing_cols,
-                                       ['doc_identidad', 'doc_identidad_jefe', 'paciente_documento', 'documento'],
-                                       "'00000000'")
+        visita_no_expr = cls._resolve_column(existing_cols, ['familia_visita_no', 'visita_no', 'no_visita', 'familia_visita'], "'01'")
+        codigo_fam_expr = cls._resolve_column(existing_cols, ['codigo_familia', 'cod_familia', 'familia_codigo'], "'N/A'")
+        jefe_expr = cls._resolve_column(existing_cols, ['nombre_jefe_hogar', 'nombre_jefe', 'nombre_jefe_familia', 'jefe_hogar'], "'N/A'")
+        doc_expr = cls._resolve_column(existing_cols, ['doc_identidad', 'doc_identidad_jefe', 'paciente_documento', 'documento'], "'00000000'")
 
+        # Extraccion del Nombre del Profesional digitado en el formulario
         prof_candidates = []
         for col in ['nombre_nutricionista', 'nombre_fisio', 'nombre_fisioterapeuta', 'nombre_profesional']:
             if col in existing_cols:
-                prof_candidates.append(
-                    f"NULLIF(NULLIF(NULLIF(NULLIF(TRIM(LOWER({col}::text)), 'sin asignar'), 'sin_asignar'), 'n/a'), '')")
+                prof_candidates.append(f"NULLIF(NULLIF(NULLIF(NULLIF(TRIM(LOWER({col}::text)), 'sin asignar'), 'sin_asignar'), 'n/a'), '')")
 
-        for col in ['especialista_email', 'profesional_email', 'email']:
-            if col in existing_cols:
-                prof_candidates.append(f"NULLIF(NULLIF(TRIM(LOWER({col}::text)), 'sin asignar'), '')")
+        nombre_prof_expr = f"COALESCE({', '.join(prof_candidates)}, 'Sin Nombre')" if prof_candidates else "'Sin Nombre'"
 
-        prof_expr = f"COALESCE({', '.join(prof_candidates)}, 'sin asignar')" if prof_candidates else "'sin asignar'"
+        # Extraccion Inmutable del Correo Electronico del Especialista
+        email_expr = "especialista_email::text" if 'especialista_email' in existing_cols else "'Sin Correo'"
 
         fecha_expr = cls._resolve_column(existing_cols, ['fecha_visita', 'created_at', 'fecha'], "NOW()::text")
         deleted_expr = "COALESCE(is_deleted, false)" if 'is_deleted' in existing_cols else "false"
@@ -57,7 +50,8 @@ class RegistrosService:
                 {codigo_fam_expr} AS codigo_familia,
                 {jefe_expr} AS nombre_jefe_hogar,
                 {doc_expr} AS doc_identidad,
-                {prof_expr} AS especialista_email,
+                {email_expr} AS especialista_email,
+                {nombre_prof_expr} AS nombre_especialista,
                 {fecha_expr} AS fecha_visita,
                 {deleted_expr} AS is_deleted,
                 {created_expr} AS created_at
@@ -99,7 +93,15 @@ class RegistrosService:
             params["user_email"] = user_email
 
         if search_query:
-            sql_text += """ AND (doc_identidad ILIKE :search OR nombre_jefe_hogar ILIKE :search OR codigo_familia ILIKE :search OR familia_visita_no ILIKE :search OR especialista_email ILIKE :search OR modulo ILIKE :search)"""
+            sql_text += """ AND (
+                doc_identidad ILIKE :search OR 
+                nombre_jefe_hogar ILIKE :search OR 
+                codigo_familia ILIKE :search OR 
+                familia_visita_no ILIKE :search OR 
+                especialista_email ILIKE :search OR 
+                nombre_especialista ILIKE :search OR
+                modulo ILIKE :search
+            )"""
             params["search"] = f"%{search_query}%"
 
         sql_text += " ORDER BY created_at DESC"
@@ -158,8 +160,7 @@ class RegistrosService:
                         query = text(f"UPDATE {table} SET is_deleted = true WHERE id::text = :id")
                         res = conn.execute(query, {"id": record_id})
                     else:
-                        query = text(
-                            f"UPDATE {table} SET is_deleted = true WHERE id::text = :id AND (LOWER(COALESCE(especialista_email, '')) = :email)")
+                        query = text(f"UPDATE {table} SET is_deleted = true WHERE id::text = :id AND LOWER(COALESCE(especialista_email, '')) = :email")
                         res = conn.execute(query, {"id": record_id, "email": user_email})
                     mutations += res.rowcount
             if mutations > 0:
@@ -192,27 +193,20 @@ class RegistrosService:
 
     @classmethod
     def _sanitize_csv_value(cls, key: str, val) -> str:
-        """Sanitiza celdas para evitar ruptura de delimitadores CSV y truncar Base64."""
         if val is None:
             return ""
-
         key_lower = str(key).lower()
         val_str = str(val)
-
         if 'firma' in key_lower or val_str.startswith('data:image/'):
             return "FIRMA REGISTRADA" if len(val_str) > 50 else "NO REGISTRADA"
-
         if isinstance(val, (dict, list)):
             return json.dumps(val, ensure_ascii=False)
-
         if hasattr(val, 'isoformat'):
             return val.isoformat()
-
         return val_str.replace('\n', ' ').replace('\r', '').strip()
 
     @classmethod
     def _generate_csv_for_table(cls, table_name: str, user_data: dict, filter_type: str, p1: str, p2: str) -> tuple:
-        """Extrae el 100% de las columnas de una tabla y aplica filtros de fecha/especialista."""
         user_role = str(user_data.get('rol', '')).strip().upper()
         user_email = str(user_data.get('email', '')).strip().lower()
 
@@ -225,10 +219,8 @@ class RegistrosService:
         params = {}
 
         if user_role not in ['ADMINISTRADOR', 'COORDINADOR']:
-            email_cols = [c for c in cols_names if 'email' in c.lower()]
-            if email_cols:
-                conds = " OR ".join([f"LOWER(COALESCE({c}::text, '')) = :email" for c in email_cols])
-                sql_text += f" AND ({conds})"
+            if 'especialista_email' in cols_names:
+                sql_text += " AND LOWER(COALESCE(especialista_email::text, '')) = :email"
                 params["email"] = user_email
             else:
                 sql_text += " AND 1=0"
@@ -241,13 +233,11 @@ class RegistrosService:
             params['p1'] = p1
             params['p2'] = p2
         elif filter_type == 'especialista' and p1:
-            email_cols = [c for c in cols_names if 'email' in c.lower()]
-            if email_cols:
-                conds = " OR ".join([f"LOWER(COALESCE({c}::text, '')) = LOWER(:search_email)" for c in email_cols])
-                sql_text += f" AND ({conds})"
+            if 'especialista_email' in cols_names:
+                sql_text += " AND LOWER(COALESCE(especialista_email::text, '')) = LOWER(:search_email)"
                 params['search_email'] = str(p1).strip()
 
-        sql_text += " ORDER BY fecha_visita DESC"
+        sql_text += " ORDER BY created_at DESC"
 
         with db.engine.connect() as conn:
             rows = conn.execute(text(sql_text), params).mappings().all()
@@ -256,7 +246,7 @@ class RegistrosService:
             return None, 0
 
         output = io.StringIO()
-        output.write('\ufeff')  # UTF-8 BOM para Excel
+        output.write('\ufeff')
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(cols_names)
 
@@ -268,21 +258,14 @@ class RegistrosService:
 
     @classmethod
     def export_csv(cls, user_data: dict, filter_type: str, p1: str, p2: str) -> tuple:
-        """
-        Despacha un único archivo CSV si se filtra por especialidad,
-        o un archivo ZIP contenedor de múltiples CSVs si abarca múltiples tablas.
-        Retorna: (file_bytes, filename, mimetype)
-        """
         table_map = {
             'nutricion': ('formulario_nutricionista', 'APS_Base_Nutricion'),
             'fisioterapia': ('formulario_fisioterapia', 'APS_Base_Fisioterapia'),
             'respiratoria': ('formulario_respiratoria', 'APS_Base_Respiratoria')
         }
-
         filter_key = str(filter_type).strip().lower()
         timestamp = datetime.now().strftime('%Y%m%d_%H%M')
 
-        # Escenario 1: Exportacion Individual
         if filter_key == 'especialidad' and p1 and p1.lower() in table_map:
             t_name, f_prefix = table_map[p1.lower()]
             csv_bytes, count = cls._generate_csv_for_table(t_name, user_data, filter_type, p1, p2)
@@ -290,7 +273,6 @@ class RegistrosService:
                 return csv_bytes, f"{f_prefix}_{timestamp}.csv", "text/csv"
             return None, "No se encontraron registros para la especialidad seleccionada.", "error"
 
-        # Escenario 2: Exportacion de Todas las Tablas (ZIP Packager)
         zip_buffer = io.BytesIO()
         total_exported = 0
 
