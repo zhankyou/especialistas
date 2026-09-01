@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, Response, make_response
+from flask import Blueprint, request, jsonify, make_response
 from src.services.registros_service import RegistrosService
 from src.services.telegram_service import TelegramService
 from src.utils.auth_utils import get_user_from_request
