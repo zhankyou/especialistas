@@ -1,145 +1,169 @@
+/**
+ * MOTOR DE SINCRONIZACIÓN PWA - CLIENTE ES6
+ * Gestiona lectura de cola local, borrado granular, enrutamiento a edición y despacho Batch (Upsert).
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
     if (!token) {
-        alert("Sesión no válida.");
         window.location.replace('/login');
         return;
     }
 
-    // Configuración Arquitectónica del Motor de Colas (Queue Engine)
-    const queuesConfig = [
-        { storageKey: 'aps_nutricion_queue', moduleName: 'Nutrición', cssClass: 'bg-nutricion', endpoint: '/api/nutricion/save' },
-        { storageKey: 'aps_respiratoria_queue', moduleName: 'Terapia Respiratoria', cssClass: 'bg-respiratoria', endpoint: '/api/respiratoria/save' },
-        { storageKey: 'aps_fisioterapia_queue', moduleName: 'Fisioterapia', cssClass: 'bg-fisioterapia', endpoint: '/api/fisioterapia/save' }
-    ];
+    const tableBody = document.getElementById('sync-table-body');
+    const syncBtn = document.getElementById('btn-sync-all');
+    const clearBtn = document.getElementById('btn-clear-queue');
 
-    let pendingItems = [];
+    loadSyncQueue();
 
-    // 1. LECTURA DE COLAS (I/O LocalStorage)
-    function loadPendingQueues() {
-        pendingItems = [];
-        queuesConfig.forEach(config => {
-            try {
-                const queueData = JSON.parse(localStorage.getItem(config.storageKey) || '[]');
-                queueData.forEach((item, index) => {
-                    pendingItems.push({
-                        ...config,
-                        originalIndex: index,
-                        payload: item,
-                        status: 'pending' // pending, syncing, success, error
-                    });
-                });
-            } catch (error) {
-                console.error(`Fallo lectura de cola ${config.storageKey}:`, error);
-            }
-        });
-        renderDashboard();
+    if (syncBtn) {
+        syncBtn.addEventListener('click', executeBatchSync);
     }
 
-    // 2. RENDERIZADO REACTIVO DEL DOM
-    function renderDashboard() {
-        document.getElementById('total-pending').innerText = pendingItems.filter(i => i.status === 'pending' || i.status === 'error').length;
-        const container = document.getElementById('sync-container');
-        container.innerHTML = '';
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (confirm('ALERTA DE SEGURIDAD: ¿Está seguro de eliminar TODOS los registros pendientes? Perderá los expedientes permanentemente.')) {
+                localStorage.removeItem('aps_sync_queue');
+                loadSyncQueue();
+            }
+        });
+    }
 
-        if (pendingItems.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding: 40px; color:var(--text-muted);">
-                <i class="fas fa-check-circle fa-3x" style="color:#10b981; margin-bottom:15px;"></i>
-                <h4>Bandeja Limpia</h4><p>No hay formularios pendientes por sincronizar.</p></div>`;
-            document.getElementById('btn-sync-all').disabled = true;
+    function loadSyncQueue() {
+        if (!tableBody) return;
+
+        let queue = [];
+        try {
+            queue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+        } catch (e) {
+            console.error('[SYNC ERROR] Corrupción en el LocalStorage.', e);
+            queue = [];
+        }
+
+        tableBody.innerHTML = '';
+
+        if (queue.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:#64748b;">
+                <i class="fas fa-check-circle fa-3x" style="color:#10b981; margin-bottom:15px;"></i><br>
+                <span style="font-size:1.1rem; font-weight:bold;">Sincronización al 100%</span><br>
+                No hay expedientes pendientes en el almacenamiento de este dispositivo.
+            </td></tr>`;
+            if (syncBtn) syncBtn.disabled = true;
+            if (clearBtn) clearBtn.disabled = true;
             return;
         }
-        document.getElementById('btn-sync-all').disabled = false;
 
-        pendingItems.forEach((item, displayIndex) => {
-            const statusIcon = item.status === 'success' ? '<i class="fas fa-check-circle" style="color:#16a34a;"></i> Sincronizado' :
-                               item.status === 'error' ? '<i class="fas fa-exclamation-circle" style="color:#dc2626;"></i> Error' :
-                               item.status === 'syncing' ? '<i class="fas fa-spinner fa-spin" style="color:#0284c7;"></i> Subiendo...' :
-                               '<i class="fas fa-clock" style="color:#eab308;"></i> En Espera';
+        if (syncBtn) syncBtn.disabled = false;
+        if (clearBtn) clearBtn.disabled = false;
 
-            const card = document.createElement('div');
-            card.className = `sync-item ${item.status === 'success' ? 'success' : item.status === 'error' ? 'error' : ''}`;
-            card.innerHTML = `
-                <div class="item-info">
-                    <h4>Familia: ${item.payload.codigo_familia || 'Desconocido'} 
-                        <span class="badge-module ${item.cssClass}">${item.moduleName}</span>
-                    </h4>
-                    <p>
-                        <i class="fas fa-calendar-alt"></i> Fecha Visita: ${item.payload.fecha_visita || 'N/A'} | 
-                        <i class="fas fa-map-marker-alt"></i> ${item.payload.territorio} - ${item.payload.microterritorio}
-                    </p>
-                </div>
-                <div class="item-actions">
-                    <span style="font-size:0.85rem; font-weight:bold; width: 120px; text-align:right;">${statusIcon}</span>
-                    <button class="btn-delete" title="Eliminar Registro Corrupto" onclick="deleteItem('${item.storageKey}', ${item.originalIndex})">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
+        queue.forEach(item => {
+            const tr = document.createElement('tr');
+            const p = item.payload || {};
+            const fecha = item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Desconocida';
+            const safeId = p.local_id || 'LOCAL-UNKNOWN';
+            const safeModulo = (item.modulo || 'general').toLowerCase();
+
+            let badgeColor = '#64748b';
+            if(safeModulo === 'nutricion') badgeColor = '#10b981';
+            else if(safeModulo === 'respiratoria') badgeColor = '#06b6d4';
+            else if(safeModulo === 'fisioterapia') badgeColor = '#f59e0b';
+
+            tr.innerHTML = `
+                <td style="font-family:monospace; font-weight:bold;">${safeId}</td>
+                <td><span style="background:${badgeColor}; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${safeModulo.toUpperCase()}</span></td>
+                <td><strong>${p.nombre_jefe || p.nombre_jefe_hogar || 'Sin Nombre'}</strong><br><small style="color:#64748b;">Doc: ${p.doc_identidad || 'N/A'}</small></td>
+                <td>${fecha}</td>
+                <td style="text-align:center;">
+                    <span style="color:#f59e0b; font-weight:bold; font-size:0.9rem;"><i class="fas fa-wifi" style="text-decoration:line-through;"></i> En Espera</span>
+                </td>
+                <td style="text-align:center;">
+                    <button class="btn-icon-table btn-edit-local" title="Editar Expediente" data-id="${safeId}" data-modulo="${safeModulo}"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon-table btn-delete-local" title="Descartar Registro" data-id="${safeId}"><i class="fas fa-trash"></i></button>
+                </td>
             `;
-            container.appendChild(card);
+            tableBody.appendChild(tr);
+        });
+
+        attachTableEvents();
+    }
+
+    function attachTableEvents() {
+        document.querySelectorAll('.btn-edit-local').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                const modulo = e.currentTarget.getAttribute('data-modulo');
+                window.location.href = `/${modulo}?local_edit_id=${id}`;
+            });
+        });
+
+        document.querySelectorAll('.btn-delete-local').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.currentTarget.getAttribute('data-id');
+                if (confirm('¿Desea descartar este expediente de la cola de sincronización?')) {
+                    let queue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+                    queue = queue.filter(item => item.payload.local_id !== id);
+                    localStorage.setItem('aps_sync_queue', JSON.stringify(queue));
+                    loadSyncQueue();
+                }
+            });
         });
     }
 
-    // 3. FUNCIÓN DE ELIMINACIÓN (Prevención Poison Pills)
-    window.deleteItem = function(storageKey, originalIndex) {
-        if(confirm('¿Está seguro de eliminar este registro local? Se perderán los datos y evidencias.')) {
-            let queueData = JSON.parse(localStorage.getItem(storageKey) || '[]');
-            queueData.splice(originalIndex, 1);
-            localStorage.setItem(storageKey, JSON.stringify(queueData));
-            loadPendingQueues();
-        }
-    };
-
-    // 4. MOTOR DE SINCRONIZACIÓN SECUENCIAL (Para no saturar el servidor con múltiples subidas de Base64)
-    document.getElementById('btn-sync-all').addEventListener('click', async () => {
+    async function executeBatchSync() {
         if (!navigator.onLine) {
-            alert("No hay conexión a Internet. Conéctese a una red Wifi o Móvil para iniciar la sincronización.");
+            alert('El dispositivo se encuentra sin conexión a Internet. Conéctese a una red Wi-Fi o datos móviles para proceder con el volcado a la Base de Datos.');
             return;
         }
 
-        const btn = document.getElementById('btn-sync-all');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
-
-        for (let i = 0; i < pendingItems.length; i++) {
-            let item = pendingItems[i];
-            if (item.status === 'success') continue;
-
-            item.status = 'syncing';
-            renderDashboard();
-
-            try {
-                const response = await fetch(item.endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(item.payload)
-                });
-
-                if (response.ok) {
-                    item.status = 'success';
-                    // Eliminar del LocalStorage original
-                    let queueData = JSON.parse(localStorage.getItem(item.storageKey) || '[]');
-                    // El filtrado por índice puede desfasarse si subimos varios al tiempo, lo ideal es purgar usando filter.
-                    // Para simplificar: Purgamos el que coincida exactamente en payload (serializado)
-                    queueData = queueData.filter(q => JSON.stringify(q) !== JSON.stringify(item.payload));
-                    localStorage.setItem(item.storageKey, JSON.stringify(queueData));
-                } else {
-                    item.status = 'error';
-                }
-            } catch (err) {
-                console.error("Error en sincronización: ", err);
-                item.status = 'error';
-            }
-            renderDashboard();
+        let queue = [];
+        try {
+            queue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+        } catch (e) {
+            return;
         }
 
-        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Sincronizar Todo a la Nube';
-        btn.disabled = false;
+        if (queue.length === 0) return;
 
-        // Recargar vista para limpiar los success
-        setTimeout(() => loadPendingQueues(), 2000);
-    });
+        const origBtnText = syncBtn.innerHTML;
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando con PostgreSQL...';
+        if (clearBtn) clearBtn.disabled = true;
 
-    // Iniciar
-    loadPendingQueues();
+        try {
+            const response = await fetch('/api/sync/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(queue)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                const syncedIds = result.synced_ids || [];
+                const remainingQueue = queue.filter(item => !syncedIds.includes(item.payload.local_id));
+
+                localStorage.setItem('aps_sync_queue', JSON.stringify(remainingQueue));
+                loadSyncQueue();
+
+                if (remainingQueue.length === 0) {
+                    alert('Sincronización completada exitosamente. Todos los datos han sido transferidos a la Base de Datos.');
+                } else {
+                    alert(`Sincronización parcial. Se transfirieron ${syncedIds.length} expedientes. Revise la consola para identificar registros corruptos.`);
+                    console.error('[SYNC WARNING] Errores en transacciones DB:', result.errors);
+                }
+            } else {
+                alert(`Error en el servidor: ${result.message || 'Fallo transaccional masivo'}`);
+            }
+        } catch (error) {
+            console.error('[NETWORK ERROR] Error durante la sincronización:', error);
+            alert('Fallo de red durante la transmisión de los datos hacia el servidor. Verifique su estabilidad y reintente.');
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = origBtnText;
+            if (clearBtn) clearBtn.disabled = false;
+        }
+    }
 });
