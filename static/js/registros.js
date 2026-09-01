@@ -1,7 +1,7 @@
 /**
  * CORE REGISTROS ENGINE - APS ESE 2026
  * Arquitectura: ES6 Class Pattern (SOLID: Single Responsibility Principle)
- * Funcionalidad: Renderizado dinámico, consumo de API con JWT estricto y descarga de BLOBs (PDF).
+ * Funcionalidad: Renderizado dinámico, consumo de API con JWT estricto y descarga de BLOBs (PDF/CSV/ZIP).
  */
 
 class RegistrosEngine {
@@ -215,21 +215,33 @@ class RegistrosEngine {
         const origText = submitBtn.innerHTML;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Empaquetando Datos...';
 
         fetch(downloadUrl, {
             headers: { 'Authorization': `Bearer ${this.token}` }
         })
-        .then(response => {
-            if(!response.ok) throw new Error("Fallo al generar reporte CSV en el servidor.");
-            return response.blob();
-        })
-        .then(blob => {
+        .then(async response => {
+            if(!response.ok) {
+                const errJson = await response.json().catch(() => ({}));
+                throw new Error(errJson.message || "Fallo al generar reporte en el servidor.");
+            }
+
+            // Extracción de nombre de archivo y MimeType desde las cabeceras HTTP RFC 6266
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = `APS_Export_${new Date().getTime()}`;
+            if (disposition && disposition.indexOf('filename=') !== -1) {
+                const matches = /filename="([^"]+)"/.exec(disposition);
+                if (matches != null && matches[1]) {
+                    filename = matches[1];
+                }
+            }
+
+            const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = `APS_Informes_${new Date().getTime()}.csv`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -237,7 +249,7 @@ class RegistrosEngine {
         })
         .catch(err => {
             console.error('[EXPORT ERROR]', err);
-            alert("No se pudo generar el archivo de exportación.");
+            alert(err.message || "No se pudo generar el archivo de exportación.");
         })
         .finally(() => {
             submitBtn.disabled = false;
@@ -276,10 +288,6 @@ class RegistrosEngine {
         }).catch(err => console.error('[CLIPBOARD ERROR]', err));
     }
 
-    /**
-     * Solución Definitiva de HTTP 401 Unauthorized (OWASP A01).
-     * Descarga y gestiona el PDF de forma asíncrona inyectando el Bearer Token.
-     */
     async downloadPdf(modulo, id) {
         const url = `/api/${modulo}/${id}/pdf`;
 
@@ -304,7 +312,6 @@ class RegistrosEngine {
             a.style.display = 'none';
             a.href = blobUrl;
 
-            // Extracción nativa del nombre de archivo desde los encabezados HTTP
             let filename = `APS_${modulo.toUpperCase()}_${id.split('-')[0]}.pdf`;
             const disposition = response.headers.get('Content-Disposition');
             if (disposition && disposition.indexOf('filename=') !== -1) {
