@@ -10,7 +10,7 @@ class FisioterapiaService:
     """
     Servicio de Dominio para la gestion transaccional del formulario de Fisioterapia.
     Garantiza persistencia segura en operaciones Upsert inyectando estructuras validas
-    en todas las columnas JSON del modelo.
+    en todas las columnas JSON e integra subida asíncrona a Google Drive.
     """
 
     @classmethod
@@ -68,6 +68,21 @@ class FisioterapiaService:
                                                                            dict) else {}
             metas_data = payload.get('metas') if isinstance(payload.get('metas'), dict) else {}
 
+            # PROCESAMIENTO MULTIMEDIA HACIA GOOGLE DRIVE
+            evidencias_payload = payload.get('evidencias', [])
+            evidencias_procesadas = []
+
+            if evidencias_payload:
+                from src.services.drive_service import DriveService
+                for idx, ev in enumerate(evidencias_payload):
+                    b64_data = ev.get('data')
+                    f_name = ev.get('nombre')
+                    if b64_data and f_name:
+                        safe_name = f"{str(payload.get('codigo_familia', 'FAM'))}_{idx}_{f_name}"
+                        link = DriveService.upload_base64_evidence(b64_data, safe_name, 'fisioterapia')
+                        if link:
+                            evidencias_procesadas.append({"nombre": safe_name, "url": link})
+
             if registro_existente:
                 if user_role not in ['ADMINISTRADOR',
                                      'COORDINADOR'] and registro_existente.especialista_email.lower() != especialista_email:
@@ -76,6 +91,12 @@ class FisioterapiaService:
                         "message": "Acceso denegado. No posee privilegios para editar este expediente.",
                         "code": 403
                     }
+
+                # Anexado In-Place de URLs de Drive
+                urls_existentes = registro_existente.evidencias_drive_urls or []
+                if not isinstance(urls_existentes, list):
+                    urls_existentes = []
+                urls_existentes.extend(evidencias_procesadas)
 
                 registro_existente.fecha_visita = fecha_dt
                 registro_existente.territorio = str(payload.get('territorio', '')).strip()
@@ -109,6 +130,7 @@ class FisioterapiaService:
                 registro_existente.canalizacion = canal_data
                 registro_existente.sintesis_analisis = sintesis_data
                 registro_existente.metas = metas_data
+                registro_existente.evidencias_drive_urls = urls_existentes
 
                 registro_existente.remite = remite_bool
                 registro_existente.cc_profesional = str(payload.get('cc_profesional', '')).strip()
@@ -122,7 +144,6 @@ class FisioterapiaService:
                 registro_existente.synced_at = datetime.utcnow()
                 db.session.commit()
 
-                print(f"[FISIOTERAPIA SERVICE] Expediente {target_id} actualizado exitosamente sin duplicacion.")
                 return {
                     "status": "success",
                     "message": "Expediente de Fisioterapia actualizado correctamente.",
@@ -162,6 +183,7 @@ class FisioterapiaService:
                     canalizacion=canal_data,
                     sintesis_analisis=sintesis_data,
                     metas=metas_data,
+                    evidencias_drive_urls=evidencias_procesadas,
                     remite=remite_bool,
                     cc_profesional=str(payload.get('cc_profesional', '')).strip(),
                     cc_cuidador=str(payload.get('cc_cuidador', '')).strip(),
@@ -175,7 +197,6 @@ class FisioterapiaService:
                 db.session.add(nuevo_registro)
                 db.session.commit()
 
-                print(f"[FISIOTERAPIA SERVICE] Nuevo expediente {new_record_id} creado exitosamente.")
                 return {"status": "success", "message": "Expediente creado exitosamente.", "id": new_record_id,
                         "code": 200}
 
