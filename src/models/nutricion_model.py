@@ -7,7 +7,8 @@ from src.models import db
 class FormularioNutricion(db.Model):
     """
     Modelo ORM para la entidad formulario_nutricionista en PostgreSQL.
-    Incluye mapeo para 'seguimiento' con metodos defensivos de parsing JSON.
+    Mapea de forma exhaustiva las variables clínicas de Nutrición e incorpora
+    columna JSON para referencias de evidencias subidas a Google Drive.
     """
     __tablename__ = 'formulario_nutricionista'
 
@@ -42,6 +43,10 @@ class FormularioNutricion(db.Model):
     lineas_otra = db.Column(db.Text, nullable=True)
     compromiso = db.Column(db.Text, nullable=True)
     remite = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Campo Agregado para almacenar las URLs de Drive generadas asincronamente
+    evidencias_drive_urls = db.Column(db.JSON, nullable=True)
+
     cc_profesional = db.Column(db.String(50), nullable=False)
     cc_cuidador = db.Column(db.String(50), nullable=False)
 
@@ -84,6 +89,7 @@ class FormularioNutricion(db.Model):
         seg_alim = self._deep_parse_json(self.seguridad_alimentaria, default_type=dict)
         plan_cuid = self._deep_parse_json(self.plan_cuidado, default_type=dict)
         seguim = self._deep_parse_json(self.seguimiento, default_type=dict)
+        evidencias_urls = self._deep_parse_json(self.evidencias_drive_urls, default_type=list)
 
         acc_disp_val = str(self.acc_disp or seg_alim.get('acc_disp') or "").strip()
         consumo_val = str(self.consumo or seg_alim.get('consumo') or "").strip()
@@ -122,6 +128,7 @@ class FormularioNutricion(db.Model):
             },
             "plan_cuidado": plan_cuid,
             "seguimiento": seguim,
+            "evidencias_drive_urls": evidencias_urls,
             "lineas_accion": lineas if isinstance(lineas, list) else [lineas] if lineas else [],
             "lineas_otra": str(self.lineas_otra or plan_cuid.get('lineas_otra') or ""),
             "compromiso": str(self.compromiso or plan_cuid.get('compromiso') or ""),
