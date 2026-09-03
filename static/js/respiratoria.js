@@ -1,6 +1,6 @@
 /**
  * FORMULARIO RESPIRATORIA - CLIENTE ES6
- * Arquitectura: Patrón Offline-First, Actualización Transitoria in-place y Despacho.
+ * Arquitectura: Procesamiento Base64 Nativo (FileReader), Mitigación de Cuotas PWA y Despacho Idempotente[cite: 18].
  */
 
 let activeEditId = null;
@@ -309,6 +309,28 @@ function setupFormSubmission(form, token) {
         try {
             const canvasProf = document.getElementById('canvas-profesional');
             const canvasCuid = document.getElementById('canvas-cuidador');
+            const fileInput = document.getElementById('evidencia-file');
+            const evidenciasList = [];
+
+            // =========================================================================
+            // LECTURA NATIVA DE EVIDENCIAS EN BASE64 (Drive Integration)
+            // =========================================================================
+            if (fileInput && fileInput.files.length > 0) {
+                const files = Array.from(fileInput.files).slice(0, 5);
+                for (const file of files) {
+                    try {
+                        const fileData = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = error => reject(error);
+                        });
+                        evidenciasList.push({ nombre: file.name, tipo: file.type, data: fileData });
+                    } catch(err) {
+                        console.warn('[BASE64 WARN] Fallo al codificar archivo:', file.name);
+                    }
+                }
+            }
 
             const composicionList = []; document.querySelectorAll('#composicion-body tr').forEach(r => composicionList.push({ nombre: r.querySelector('.comp-nombre').value, edad: parseInt(r.querySelector('.comp-edad').value||0), eps: r.querySelector('.comp-eps').value, tos: r.querySelector('.comp-tos').value, cronica: r.querySelector('.comp-cronica').value, menor: r.querySelector('.comp-menor').value }));
 
@@ -341,7 +363,8 @@ function setupFormSubmission(form, token) {
                 cc_profesional: getVal('cc_profesional'),
                 cc_cuidador: getVal('cc_cuidador'),
                 firma_profesional: canvasProf ? canvasProf.toDataURL('image/png') : '',
-                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : ''
+                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : '',
+                evidencias: evidenciasList
             };
         } catch (domErr) {
             alert("Error de extracción: " + domErr.message);
@@ -358,8 +381,18 @@ function setupFormSubmission(form, token) {
                 alert(activeLocalEditId ? 'El registro ha sido actualizado localmente.' : 'Sin conexión. El registro se ha guardado de forma segura en su dispositivo.');
                 window.location.replace('/sincronizacion');
             } catch (err) {
-                alert('Fallo al guardar en memoria caché.');
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert('Aviso: El tamaño de las evidencias supera la memoria caché del navegador (Offline). Se guardará el formulario sin los adjuntos pesados.');
+                    payload.evidencias = [];
+                    let syncQueue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+                    syncQueue = syncQueue.filter(q => q.payload.local_id !== payload.local_id);
+                    syncQueue.push({ modulo: 'respiratoria', payload: payload, timestamp: new Date().toISOString() });
+                    localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
+                    window.location.replace('/sincronizacion');
+                } else {
+                    alert('Fallo al guardar en memoria caché.');
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                }
             }
         };
 
@@ -388,7 +421,7 @@ function setupFormSubmission(form, token) {
                 syncQueue = syncQueue.filter(q => q.payload.local_id !== activeLocalEditId);
                 localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
             }
-            alert('Valoración Respiratoria guardada en Base de Datos.');
+            alert('Valoración Respiratoria guardada en BD y Evidencias subidas al Servidor.');
             window.location.replace('/registros');
 
         } catch (err) {
