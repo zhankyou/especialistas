@@ -8,7 +8,7 @@ class FormularioFisioterapia(db.Model):
     """
     Modelo ORM para la entidad formulario_fisioterapia en PostgreSQL.
     Mapea de forma exhaustiva todas las columnas del esquema Cloud con
-    deserialización defensiva de objetos JSON.
+    deserialización defensiva de objetos JSON e incorpora URL externas de Drive.
     """
     __tablename__ = 'formulario_fisioterapia'
 
@@ -45,6 +45,7 @@ class FormularioFisioterapia(db.Model):
     canalizacion = db.Column(db.JSON, nullable=True)
     sintesis_analisis = db.Column(db.JSON, nullable=True)
     metas = db.Column(db.JSON, nullable=True)
+    evidencias_drive_urls = db.Column(db.JSON, nullable=True)
 
     remite = db.Column(db.Boolean, nullable=False, default=False)
     cc_profesional = db.Column(db.String(50), nullable=False)
@@ -95,6 +96,7 @@ class FormularioFisioterapia(db.Model):
         canal_dict = self._deep_parse_json(self.canalizacion, default_type=dict)
         sintesis_dict = self._deep_parse_json(self.sintesis_analisis, default_type=dict)
         metas_dict = self._deep_parse_json(self.metas, default_type=dict)
+        evidencias_urls = self._deep_parse_json(self.evidencias_drive_urls, default_type=list)
 
         remite_str = "SI" if self.remite is True or str(self.remite).upper() in ['SI', 'SÍ', 'TRUE', '1'] else "NO"
         nombre_prof = str(self.nombre_fisio or self.nombre_fisioterapeuta or "").strip()
@@ -130,6 +132,7 @@ class FormularioFisioterapia(db.Model):
             "canalizacion": canal_dict,
             "sintesis_analisis": sintesis_dict,
             "metas": metas_dict,
+            "evidencias_drive_urls": evidencias_urls,
             "remite": remite_str,
             "cc_profesional": str(self.cc_profesional or ""),
             "cc_cuidador": str(self.cc_cuidador or ""),
