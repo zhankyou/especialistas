@@ -8,7 +8,7 @@ class FormularioRespiratoria(db.Model):
     """
     Modelo ORM para la entidad formulario_respiratoria en PostgreSQL.
     Mapea de forma exhaustiva todas las columnas del esquema Cloud con
-    deserialización defensiva de objetos JSON.
+    deserialización defensiva de objetos JSON e incorpora evidencias Cloud[cite: 20].
     """
     __tablename__ = 'formulario_respiratoria'
 
@@ -37,6 +37,9 @@ class FormularioRespiratoria(db.Model):
     acciones_educacion = db.Column(db.JSON, nullable=True)
     composicion_familiar = db.Column(db.JSON, nullable=True)
     seguimiento = db.Column(db.JSON, nullable=True)
+
+    # Campo Agregado para soportar los enlaces generados por DriveService
+    evidencias_drive_urls = db.Column(db.JSON, nullable=True)
 
     remite = db.Column(db.Boolean, nullable=False, default=False)
     cc_profesional = db.Column(db.String(50), nullable=False)
@@ -82,6 +85,7 @@ class FormularioRespiratoria(db.Model):
         acciones_dict = self._deep_parse_json(self.acciones_educacion, default_type=dict)
         comp_fam_dict = self._deep_parse_json(self.composicion_familiar, default_type=list)
         seguim_dict = self._deep_parse_json(self.seguimiento, default_type=dict)
+        evidencias_urls = self._deep_parse_json(self.evidencias_drive_urls, default_type=list)
 
         remite_str = "SI" if self.remite is True or str(self.remite).upper() in ['SI', 'SÍ', 'TRUE', '1'] else "NO"
 
@@ -110,6 +114,7 @@ class FormularioRespiratoria(db.Model):
             "acciones_educacion": acciones_dict,
             "composicion_familiar": comp_fam_dict,
             "seguimiento": seguim_dict,
+            "evidencias_drive_urls": evidencias_urls,
             "remite": remite_str,
             "cc_profesional": str(self.cc_profesional or ""),
             "cc_cuidador": str(self.cc_cuidador or ""),
