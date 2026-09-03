@@ -1,6 +1,6 @@
 /**
  * FORMULARIO NUTRICION - CLIENTE ES6
- * Arquitectura: Patrón Offline-First, Actualización Transitoria in-place y Despacho.
+ * Arquitectura: Patrón Offline-First, Actualización Transitoria in-place y Procesamiento Base64 para Google Drive.
  */
 
 let activeEditId = null;
@@ -226,7 +226,15 @@ function populateForm(data) {
                     <td><input type="number" step="0.1" class="form-control row-peso" value="${item.peso || 0}" min="1" max="300" required></td>
                     <td><input type="number" step="0.1" class="form-control row-talla" value="${item.talla || 0}" min="30" max="250" required></td>
                     <td><input type="number" step="0.1" class="form-control row-pb" value="${item.pb || 0}" min="5" max="60"></td>
-                    <td><input type="text" class="form-control row-dx" value="${item.dx || ''}" required></td>
+                    <td>
+                        <select class="form-control row-dx" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Desnutrición Aguda (Severa/Mod.)" ${item.dx === 'Desnutrición Aguda (Severa/Mod.)' ? 'selected' : ''}>Desnutrición Aguda (Severa/Mod.)</option>
+                            <option value="Riesgo de Desnutrición / Retraso Talla" ${item.dx === 'Riesgo de Desnutrición / Retraso Talla' ? 'selected' : ''}>Riesgo de Desnutrición / Retraso Talla</option>
+                            <option value="Peso Adecuado" ${item.dx === 'Peso Adecuado' ? 'selected' : ''}>Peso Adecuado</option>
+                            <option value="Sobrepeso-Obesidad" ${item.dx === 'Sobrepeso-Obesidad' ? 'selected' : ''}>Sobrepeso-Obesidad</option>
+                        </select>
+                    </td>
                     <td><input type="text" class="form-control row-eps" value="${item.eps || ''}" required></td>
                     <td style="text-align:center;"><button type="button" class="btn-clear btn-remove-row" style="padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
                 `;
@@ -241,6 +249,11 @@ function populateForm(data) {
     setRadioValue('hfias', data.hfias);
     setRadioValue('remite', data.remite);
     setCheckboxValues('lineas_accion', data.lineas_accion);
+
+    if (data.seguimiento) {
+        setCheckboxValues('gestion_art', data.seguimiento.gestion);
+        setCheckboxValues('soportes', data.seguimiento.soportes);
+    }
 
     renderSignatureToCanvas('canvas-profesional', data.firma_profesional);
     renderSignatureToCanvas('canvas-cuidador', data.firma_cuidador);
@@ -341,7 +354,15 @@ function setupDynamicTable() {
             <td><input type="number" step="0.1" class="form-control row-peso" min="1" max="300" required></td>
             <td><input type="number" step="0.1" class="form-control row-talla" min="30" max="250" required></td>
             <td><input type="number" step="0.1" class="form-control row-pb" min="5" max="60"></td>
-            <td><input type="text" class="form-control row-dx" required></td>
+            <td>
+                <select class="form-control row-dx" required>
+                    <option value="">Seleccione...</option>
+                    <option value="Desnutrición Aguda (Severa/Mod.)">Desnutrición Aguda (Severa/Mod.)</option>
+                    <option value="Riesgo de Desnutrición / Retraso Talla">Riesgo de Desnutrición / Retraso Talla</option>
+                    <option value="Peso Adecuado">Peso Adecuado</option>
+                    <option value="Sobrepeso-Obesidad">Sobrepeso-Obesidad</option>
+                </select>
+            </td>
             <td><input type="text" class="form-control row-eps" required></td>
             <td style="text-align:center;"><button type="button" class="btn-clear btn-remove-row" style="padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
         `;
@@ -404,6 +425,29 @@ function setupFormSubmission(form, token) {
         try {
             const canvasProf = document.getElementById('canvas-profesional');
             const canvasCuid = document.getElementById('canvas-cuidador');
+            const fileInput = document.getElementById('evidencia-file');
+            const evidenciasList = [];
+
+            // =========================================================================
+            // LECTURA NATIVA DE EVIDENCIAS EN BASE64 (Drive Integration)
+            // =========================================================================
+            if (fileInput && fileInput.files.length > 0) {
+                const files = Array.from(fileInput.files).slice(0, 5);
+                for (const file of files) {
+                    try {
+                        const fileData = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = error => reject(error);
+                        });
+                        evidenciasList.push({ nombre: file.name, tipo: file.type, data: fileData });
+                    } catch(err) {
+                        console.warn('[BASE64 WARN] Fallo al codificar archivo:', file.name);
+                    }
+                }
+            }
+
             const antropometriaData = [];
             document.querySelectorAll('#antropometria-body tr').forEach((r, idx) => {
                 antropometriaData.push({
@@ -413,12 +457,19 @@ function setupFormSubmission(form, token) {
                     peso: parseFloat(r.querySelector('.row-peso')?.value || 0),
                     talla: parseFloat(r.querySelector('.row-talla')?.value || 0),
                     pb: parseFloat(r.querySelector('.row-pb')?.value || 0),
-                    dx: (r.querySelector('.row-dx')?.value || '').trim(),
+                    dx: r.querySelector('.row-dx')?.value || '',
                     eps: (r.querySelector('.row-eps')?.value || '').trim()
                 });
             });
+
             const lineasAccion = [];
             document.querySelectorAll('input[name="lineas_accion"]:checked').forEach(c => lineasAccion.push(c.value));
+
+            const gestionArt = [];
+            document.querySelectorAll('input[name="gestion_art"]:checked').forEach(c => gestionArt.push(c.value));
+
+            const soportes = [];
+            document.querySelectorAll('input[name="soportes"]:checked').forEach(c => soportes.push(c.value));
 
             payload = {
                 id: activeEditId,
@@ -446,14 +497,16 @@ function setupFormSubmission(form, token) {
                 lineas_accion: lineasAccion,
                 lineas_otra: getVal('lineas_otra'),
                 compromiso: getVal('compromiso'),
+                seguimiento: { gestion: gestionArt, soportes: soportes },
                 remite: (document.querySelector('input[name="remite"]:checked') || {}).value || '',
                 cc_profesional: getVal('cc_profesional'),
                 cc_cuidador: getVal('cc_cuidador'),
                 firma_profesional: canvasProf ? canvasProf.toDataURL('image/png') : '',
-                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : ''
+                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : '',
+                evidencias: evidenciasList
             };
         } catch (domErr) {
-            alert("Error de extracción: " + domErr.message);
+            alert("Error de extracción estructural: " + domErr.message);
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
             return;
         }
@@ -467,8 +520,18 @@ function setupFormSubmission(form, token) {
                 alert(activeLocalEditId ? 'El registro ha sido actualizado localmente.' : 'Sin conexión a Internet. El registro se ha guardado de forma segura en su dispositivo.');
                 window.location.replace('/sincronizacion');
             } catch (err) {
-                alert('Fallo crítico al guardar en memoria caché.');
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert('Aviso: El tamaño de las evidencias supera la memoria caché del navegador (Offline). Se guardará el formulario sin los adjuntos pesados.');
+                    payload.evidencias = [];
+                    let syncQueue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+                    syncQueue = syncQueue.filter(q => q.payload.local_id !== payload.local_id);
+                    syncQueue.push({ modulo: 'nutricion', payload: payload, timestamp: new Date().toISOString() });
+                    localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
+                    window.location.replace('/sincronizacion');
+                } else {
+                    alert('Fallo crítico al guardar en memoria caché.');
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                }
             }
         };
 
@@ -501,7 +564,7 @@ function setupFormSubmission(form, token) {
                 syncQueue = syncQueue.filter(q => q.payload.local_id !== activeLocalEditId);
                 localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
             }
-            alert('Valoración Nutricional guardada en Base de Datos.');
+            alert('Valoración Nutricional guardada en Base de Datos y Evidencias subidas al Drive.');
             window.location.replace('/registros');
 
         } catch (err) {
