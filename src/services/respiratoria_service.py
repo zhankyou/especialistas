@@ -10,7 +10,7 @@ class RespiratoriaService:
     """
     Servicio de Dominio para la gestion transaccional del formulario de Terapia Respiratoria.
     Implementa el Patron Upsert e inyecta valores seguros en todas las columnas
-    para garantizar ejecuciones DML atomicas y sin excepciones NotNullViolation.
+    para garantizar ejecuciones DML atomicas e integración con Google Drive[cite: 19].
     """
 
     @classmethod
@@ -59,6 +59,23 @@ class RespiratoriaService:
                                                                               list) else []
             seguim_data = payload.get('seguimiento') if isinstance(payload.get('seguimiento'), dict) else {}
 
+            # =========================================================================
+            # PROCESAMIENTO MULTIMEDIA HACIA GOOGLE DRIVE
+            # =========================================================================
+            evidencias_payload = payload.get('evidencias', [])
+            evidencias_procesadas = []
+
+            if evidencias_payload:
+                from src.services.drive_service import DriveService
+                for idx, ev in enumerate(evidencias_payload):
+                    b64_data = ev.get('data')
+                    f_name = ev.get('nombre')
+                    if b64_data and f_name:
+                        safe_name = f"{str(payload.get('codigo_familia', 'FAM'))}_{idx}_{f_name}"
+                        link = DriveService.upload_base64_evidence(b64_data, safe_name, 'respiratoria')
+                        if link:
+                            evidencias_procesadas.append({"nombre": safe_name, "url": link})
+
             if registro_existente:
                 if user_role not in ['ADMINISTRADOR',
                                      'COORDINADOR'] and registro_existente.especialista_email.lower() != especialista_email:
@@ -67,6 +84,12 @@ class RespiratoriaService:
                         "message": "Acceso denegado. No posee privilegios para editar este expediente.",
                         "code": 403
                     }
+
+                # Anexado In-Place de URLs de Drive a registros existentes
+                urls_existentes = registro_existente.evidencias_drive_urls or []
+                if not isinstance(urls_existentes, list):
+                    urls_existentes = []
+                urls_existentes.extend(evidencias_procesadas)
 
                 registro_existente.fecha_visita = fecha_dt
                 registro_existente.territorio = str(payload.get('territorio', '')).strip()
@@ -92,6 +115,7 @@ class RespiratoriaService:
                 registro_existente.acciones_educacion = acciones_data
                 registro_existente.composicion_familiar = comp_fam_data
                 registro_existente.seguimiento = seguim_data
+                registro_existente.evidencias_drive_urls = urls_existentes
 
                 registro_existente.remite = remite_bool
                 registro_existente.cc_profesional = str(payload.get('cc_profesional', '')).strip()
@@ -105,7 +129,7 @@ class RespiratoriaService:
                 registro_existente.synced_at = datetime.utcnow()
                 db.session.commit()
 
-                print(f"[RESPIRATORIA SERVICE] Expediente {target_id} actualizado exitosamente sin duplicacion.")
+                print(f"[RESPIRATORIA SERVICE] Expediente {target_id} actualizado exitosamente.")
                 return {
                     "status": "success",
                     "message": "Expediente de Terapia Respiratoria actualizado correctamente.",
@@ -139,6 +163,7 @@ class RespiratoriaService:
                     acciones_educacion=acciones_data,
                     composicion_familiar=comp_fam_data,
                     seguimiento=seguim_data,
+                    evidencias_drive_urls=evidencias_procesadas,
                     remite=remite_bool,
                     cc_profesional=str(payload.get('cc_profesional', '')).strip(),
                     cc_cuidador=str(payload.get('cc_cuidador', '')).strip(),
