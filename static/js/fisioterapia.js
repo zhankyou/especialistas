@@ -1,6 +1,6 @@
 /**
  * FORMULARIO FISIOTERAPIA - CLIENTE ES6
- * Arquitectura: Patrón Offline-First, Actualización Transitoria in-place y Despacho.
+ * Arquitectura: Procesamiento Base64 Nativo (FileReader), Mitigación de Cuotas PWA y Despacho Idempotente.
  */
 
 let activeEditId = null;
@@ -161,8 +161,17 @@ function addMotorRow(tbody, data = {}) {
     tr.innerHTML = `
         <td><input type="text" class="form-control motor-nombre" value="${data.nombre || ''}" required></td>
         <td><input type="number" class="form-control motor-edad" value="${data.edad || ''}" min="0" max="5" required></td>
-        <td><input type="text" class="form-control motor-hito" value="${data.hito || ''}" required></td>
-        <td><select class="form-control motor-cumple"><option value="SI" ${data.cumple === 'SI' ? 'selected' : ''}>SÍ</option><option value="NO" ${data.cumple === 'NO' ? 'selected' : ''}>NO</option></select></td>
+        <td>
+            <select class="form-control motor-hito" required>
+                <option value="">Seleccione Hito...</option>
+                <option value="0-6m: Control cefálico / Agarre simétrico" ${data.hito === '0-6m: Control cefálico / Agarre simétrico' ? 'selected' : ''}>0-6m: Control cefálico / Agarre simétrico</option>
+                <option value="6-12m: Sedestación independiente / Gateo" ${data.hito === '6-12m: Sedestación independiente / Gateo' ? 'selected' : ''}>6-12m: Sedestación independiente / Gateo</option>
+                <option value="12-24m: Bipedestación / Marcha independiente" ${data.hito === '12-24m: Bipedestación / Marcha independiente' ? 'selected' : ''}>12-24m: Bipedestación / Marcha independiente</option>
+                <option value="2-3 años: Salta con ambos pies / Corre sin caer" ${data.hito === '2-3 años: Salta con ambos pies / Corre sin caer' ? 'selected' : ''}>2-3 años: Salta con ambos pies / Corre sin caer</option>
+                <option value="3-5 años: Equilibrio unipodal (>3s) / Atrapa pelota" ${data.hito === '3-5 años: Equilibrio unipodal (>3s) / Atrapa pelota' ? 'selected' : ''}>3-5 años: Equilibrio unipodal (>3s) / Atrapa pelota</option>
+            </select>
+        </td>
+        <td><select class="form-control motor-cumple"><option value="SI" ${data.cumple === 'SI' ? 'selected' : ''}>SÍ</option><option value="NO" ${data.cumple === 'NO' ? 'selected' : ''}>NO</option><option value="SOSPECHA" ${data.cumple === 'SOSPECHA' ? 'selected' : ''}>SOSPECHA</option></select></td>
         <td><select class="form-control motor-alerta"><option value="NO" ${data.alerta === 'NO' ? 'selected' : ''}>NO</option><option value="SI" ${data.alerta === 'SI' ? 'selected' : ''}>SÍ</option></select></td>
         <td><input type="text" class="form-control motor-accion" value="${data.accion || ''}"></td>
         <td style="text-align:center;"><button type="button" class="btn-clear btn-remove" style="padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
@@ -189,29 +198,99 @@ function addCaidasRow(tbody, data = {}) {
 }
 
 function addBarreraRow(tbody, data = {}) {
+    const rowId = 'br_' + Math.random().toString(36).substring(2, 9);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="text" class="form-control barrera-area" value="${data.area || ''}" required></td>
-        <td><input type="text" class="form-control barrera-riesgo" value="${data.riesgo || ''}" required></td>
+        <td>
+            <select class="form-control barrera-area select-area" data-target="${rowId}" required>
+                <option value="">Seleccione Área...</option>
+                <option value="Acceso /Entradas /Pasillos" ${data.area === 'Acceso /Entradas /Pasillos' ? 'selected' : ''}>Acceso / Entradas / Pasillos</option>
+                <option value="Escaleras /Desniveles" ${data.area === 'Escaleras /Desniveles' ? 'selected' : ''}>Escaleras / Desniveles</option>
+                <option value="Pisos y Superficies" ${data.area === 'Pisos y Superficies' ? 'selected' : ''}>Pisos y Superficies</option>
+                <option value="Baño /Sanitario /Ducha" ${data.area === 'Baño /Sanitario /Ducha' ? 'selected' : ''}>Baño / Sanitario / Ducha</option>
+                <option value="Iluminación /Espacio" ${data.area === 'Iluminación /Espacio' ? 'selected' : ''}>Iluminación / Espacio</option>
+            </select>
+        </td>
+        <td>
+            <div class="table-checkbox-container" id="${rowId}">
+                <em style="color:#64748b; font-size:0.75rem;">Seleccione el área para ver riesgos</em>
+            </div>
+        </td>
         <td><select class="form-control barrera-afecta"><option value="Todos" ${data.afecta === 'Todos' ? 'selected' : ''}>Todos</option><option value="AM" ${data.afecta === 'AM' ? 'selected' : ''}>AM</option><option value="PC" ${data.afecta === 'PC' ? 'selected' : ''}>PC</option></select></td>
         <td><input type="text" class="form-control barrera-recomendacion" value="${data.recomendacion || ''}"></td>
         <td style="text-align:center;"><button type="button" class="btn-clear btn-remove" style="padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
     `;
     tbody.appendChild(tr);
     tr.querySelector('.btn-remove').addEventListener('click', () => tr.remove());
+
+    const selectElement = tr.querySelector('.select-area');
+    const updateRiesgos = (areaValue, preselectedRiesgos = '') => {
+        const container = document.getElementById(rowId);
+        container.innerHTML = '';
+        const optionsMap = {
+            'Acceso /Entradas /Pasillos': ['Rampa ausente / Mal estado', 'Pasillos estrechos/obstaculizados'],
+            'Escaleras /Desniveles': ['Sin baranda/pasamanos', 'Peldaños irregulares/resbalosos'],
+            'Pisos y Superficies': ['Pisos resbaladizos', 'Tapetes sueltos', 'Cables expuestos'],
+            'Baño /Sanitario /Ducha': ['Sin barras de agarre', 'Sanitario bajo', 'Espacio reducido'],
+            'Iluminación /Espacio': ['Poca iluminación nocturna', 'Obstáculos en áreas de tránsito']
+        };
+
+        const list = optionsMap[areaValue] || [];
+        if (list.length === 0) {
+            container.innerHTML = '<em style="color:#64748b; font-size:0.75rem;">Seleccione un área válida</em>';
+            return;
+        }
+
+        list.forEach(opt => {
+            const isChecked = preselectedRiesgos.includes(opt) ? 'checked' : '';
+            container.innerHTML += `
+                <label class="table-checkbox-item">
+                    <input type="checkbox" class="chk-riesgo" value="${opt}" ${isChecked}> ${opt}
+                </label>
+            `;
+        });
+    };
+
+    selectElement.addEventListener('change', (e) => updateRiesgos(e.target.value));
+    if (data.area) updateRiesgos(data.area, data.riesgo || '');
 }
 
 function addErgoRow(tbody, data = {}) {
     const tr = document.createElement('tr');
+    const prevFact = data.factores || '';
+    const prevSint = data.sintomas || '';
+
     tr.innerHTML = `
         <td><input type="text" class="form-control ergo-nombre" value="${data.nombre || ''}" required></td>
         <td><input type="text" class="form-control ergo-ocupacion" value="${data.ocupacion || ''}" required></td>
-        <td><input type="text" class="form-control ergo-factores" value="${data.factores || ''}"></td>
-        <td><input type="text" class="form-control ergo-sintomas" value="${data.sintomas || ''}"></td>
+        <td>
+            <div class="table-checkbox-container">
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-factor" value="Posturas prolongadas/forzadas" ${prevFact.includes('Posturas prolongadas') ? 'checked' : ''}> Posturas prolongadas/forzadas</label>
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-factor" value="Carga manual de objetos pesados" ${prevFact.includes('Carga manual') ? 'checked' : ''}> Carga manual pesada</label>
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-factor" value="Movimientos repetitivos" ${prevFact.includes('Movimientos repetitivos') ? 'checked' : ''}> Movimientos repetitivos</label>
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-factor" value="Sobreesfuerzo físico" ${prevFact.includes('Sobreesfuerzo físico') ? 'checked' : ''}> Sobreesfuerzo físico</label>
+            </div>
+        </td>
+        <td>
+            <div class="table-checkbox-container">
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-sintoma" value="Dolor Lumbar (Lumbalgia)" ${prevSint.includes('Dolor Lumbar') ? 'checked' : ''}> Dolor Lumbar (Lumbalgia)</label>
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-sintoma" value="Dolor Cervical/Hombro" ${prevSint.includes('Dolor Cervical') ? 'checked' : ''}> Dolor Cervical/Hombro</label>
+                <label class="table-checkbox-item"><input type="checkbox" class="chk-sintoma" value="Fatiga muscular" ${prevSint.includes('Fatiga muscular') ? 'checked' : ''}> Fatiga muscular</label>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:2px;">
+                    <span style="font-size:0.75rem;">Otro:</span>
+                    <input type="text" class="form-control chk-sintoma-otro" style="padding:2px 4px; font-size:0.75rem;" placeholder="Especifique">
+                </div>
+            </div>
+        </td>
         <td><select class="form-control ergo-nivel"><option value="Bajo" ${data.nivel === 'Bajo' ? 'selected' : ''}>Bajo</option><option value="Medio" ${data.nivel === 'Medio' ? 'selected' : ''}>Medio</option><option value="Alto" ${data.nivel === 'Alto' ? 'selected' : ''}>Alto</option></select></td>
         <td style="text-align:center;"><button type="button" class="btn-clear btn-remove" style="padding:4px 8px;"><i class="fas fa-trash"></i></button></td>
     `;
     tbody.appendChild(tr);
+
+    if(prevSint && !prevSint.includes('Dolor Lumbar') && !prevSint.includes('Dolor Cervical') && !prevSint.includes('Fatiga muscular')) {
+        const otroArr = prevSint.split(', ').filter(s => s !== 'Dolor Lumbar (Lumbalgia)' && s !== 'Dolor Cervical/Hombro' && s !== 'Fatiga muscular');
+        if (otroArr.length > 0) tr.querySelector('.chk-sintoma-otro').value = otroArr.join(', ');
+    }
     tr.querySelector('.btn-remove').addEventListener('click', () => tr.remove());
 }
 
@@ -285,7 +364,6 @@ function populateForm(data) {
         setCheckboxValues('edu_tema', data.acciones_educacion.edu_tema);
         setCheckboxValues('edu_herr', data.acciones_educacion.edu_herr);
     }
-
     if (data.canalizacion) {
         setRadioValue('can_req', data.canalizacion.can_req);
         setCheckboxValues('can_serv', data.canalizacion.can_serv);
@@ -294,7 +372,6 @@ function populateForm(data) {
         if (document.getElementById('can_eps')) document.getElementById('can_eps').value = data.canalizacion.can_eps || '';
         if (document.getElementById('can_motivo')) document.getElementById('can_motivo').value = data.canalizacion.can_motivo || '';
     }
-
     if (data.sintesis_analisis) {
         setRadioValue('sin_diag', data.sintesis_analisis.sin_diag);
         if (document.getElementById('sin_diag_det')) document.getElementById('sin_diag_det').value = data.sintesis_analisis.sin_diag_det || '';
@@ -302,7 +379,6 @@ function populateForm(data) {
         if (document.getElementById('sin_revisita')) document.getElementById('sin_revisita').value = data.sintesis_analisis.sin_revisita || '';
         setCheckboxValues('sin_sop', data.sintesis_analisis.sin_sop);
     }
-
     if (data.metas) {
         if (document.getElementById('meta_visita')) document.getElementById('meta_visita').value = data.metas.meta_visita || '';
         if (document.getElementById('meta_iec')) document.getElementById('meta_iec').checked = Boolean(data.metas.meta_iec);
@@ -347,10 +423,12 @@ function setupGeolocation() {
     if (!btnGeo) return;
     btnGeo.addEventListener('click', () => {
         if (!navigator.geolocation) return;
+        btnGeo.disabled = true;
         navigator.geolocation.getCurrentPosition(pos => {
             document.getElementById('latitud').value = pos.coords.latitude.toFixed(6);
             document.getElementById('longitud').value = pos.coords.longitude.toFixed(6);
-        }, err => console.warn(err), { enableHighAccuracy: true });
+            btnGeo.disabled = false;
+        }, err => { btnGeo.disabled = false; }, { enableHighAccuracy: true });
     });
 }
 
@@ -389,11 +467,83 @@ function setupFormSubmission(form, token) {
         try {
             const canvasProf = document.getElementById('canvas-profesional');
             const canvasCuid = document.getElementById('canvas-cuidador');
+            const fileInput = document.getElementById('evidencia-file');
+            const evidenciasList = [];
 
-            const tamizajeMotorList = []; document.querySelectorAll('#motor-body tr').forEach(r => tamizajeMotorList.push({ nombre: r.querySelector('.motor-nombre').value, edad: parseInt(r.querySelector('.motor-edad').value||0), hito: r.querySelector('.motor-hito').value, cumple: r.querySelector('.motor-cumple').value, alerta: r.querySelector('.motor-alerta').value, accion: r.querySelector('.motor-accion').value }));
-            const riesgoCaidasList = []; document.querySelectorAll('#caidas-body tr').forEach(r => riesgoCaidasList.push({ nombre: r.querySelector('.caidas-nombre').value, edad: parseInt(r.querySelector('.caidas-edad').value||0), tug: parseFloat(r.querySelector('.caidas-tug').value||0), unipodal: parseFloat(r.querySelector('.caidas-unipodal').value||0), equilibrio: r.querySelector('.caidas-equilibrio').value, historial: r.querySelector('.caidas-historial').value, fractura: r.querySelector('.caidas-fractura').value, clasificacion: r.querySelector('.caidas-clasificacion').value }));
-            const barrerasList = []; document.querySelectorAll('#barreras-body tr').forEach(r => barrerasList.push({ area: r.querySelector('.barrera-area').value, riesgo: r.querySelector('.barrera-riesgo').value, afecta: r.querySelector('.barrera-afecta').value, recomendacion: r.querySelector('.barrera-recomendacion').value }));
-            const riesgoErgoList = []; document.querySelectorAll('#ergo-body tr').forEach(r => riesgoErgoList.push({ nombre: r.querySelector('.ergo-nombre').value, ocupacion: r.querySelector('.ergo-ocupacion').value, factores: r.querySelector('.ergo-factores').value, sintomas: r.querySelector('.ergo-sintomas').value, nivel: r.querySelector('.ergo-nivel').value }));
+            // Conversión Base64 de Evidencias Digitales (Drive Integration)
+            if (fileInput && fileInput.files.length > 0) {
+                const files = Array.from(fileInput.files).slice(0, 5);
+                for (const file of files) {
+                    try {
+                        const fileData = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = error => reject(error);
+                        });
+                        evidenciasList.push({ nombre: file.name, tipo: file.type, data: fileData });
+                    } catch(err) {
+                        console.warn('[BASE64 WARN] Fallo al codificar archivo adjunto:', file.name);
+                    }
+                }
+            }
+
+            const tamizajeMotorList = [];
+            document.querySelectorAll('#motor-body tr').forEach(r => {
+                tamizajeMotorList.push({
+                    nombre: r.querySelector('.motor-nombre').value,
+                    edad: parseInt(r.querySelector('.motor-edad').value||0),
+                    hito: r.querySelector('.motor-hito').value,
+                    cumple: r.querySelector('.motor-cumple').value,
+                    alerta: r.querySelector('.motor-alerta').value,
+                    accion: r.querySelector('.motor-accion').value
+                });
+            });
+
+            const riesgoCaidasList = [];
+            document.querySelectorAll('#caidas-body tr').forEach(r => {
+                riesgoCaidasList.push({
+                    nombre: r.querySelector('.caidas-nombre').value,
+                    edad: parseInt(r.querySelector('.caidas-edad').value||0),
+                    tug: parseFloat(r.querySelector('.caidas-tug').value||0),
+                    unipodal: parseFloat(r.querySelector('.caidas-unipodal').value||0),
+                    equilibrio: r.querySelector('.caidas-equilibrio').value,
+                    historial: r.querySelector('.caidas-historial').value,
+                    fractura: r.querySelector('.caidas-fractura').value,
+                    clasificacion: r.querySelector('.caidas-clasificacion').value
+                });
+            });
+
+            const barrerasList = [];
+            document.querySelectorAll('#barreras-body tr').forEach(r => {
+                const areaVal = r.querySelector('.barrera-area').value;
+                const selectedRiesgos = [];
+                r.querySelectorAll('.chk-riesgo:checked').forEach(c => selectedRiesgos.push(c.value));
+                barrerasList.push({
+                    area: areaVal,
+                    riesgo: selectedRiesgos.join(', '),
+                    afecta: r.querySelector('.barrera-afecta').value,
+                    recomendacion: r.querySelector('.barrera-recomendacion').value
+                });
+            });
+
+            const riesgoErgoList = [];
+            document.querySelectorAll('#ergo-body tr').forEach(r => {
+                const selectedFactores = [];
+                r.querySelectorAll('.chk-factor:checked').forEach(c => selectedFactores.push(c.value));
+                const selectedSintomas = [];
+                r.querySelectorAll('.chk-sintoma:checked').forEach(c => selectedSintomas.push(c.value));
+                const otroSintoma = r.querySelector('.chk-sintoma-otro').value.trim();
+                if(otroSintoma) selectedSintomas.push(otroSintoma);
+
+                riesgoErgoList.push({
+                    nombre: r.querySelector('.ergo-nombre').value,
+                    ocupacion: r.querySelector('.ergo-ocupacion').value,
+                    factores: selectedFactores.join(', '),
+                    sintomas: selectedSintomas.join(', '),
+                    nivel: r.querySelector('.ergo-nivel').value
+                });
+            });
 
             const eduTema = []; document.querySelectorAll('input[name="edu_tema"]:checked').forEach(c => eduTema.push(c.value));
             const eduHerr = []; document.querySelectorAll('input[name="edu_herr"]:checked').forEach(c => eduHerr.push(c.value));
@@ -434,7 +584,8 @@ function setupFormSubmission(form, token) {
                 cc_profesional: getVal('cc_profesional'),
                 cc_cuidador: getVal('cc_cuidador'),
                 firma_profesional: canvasProf ? canvasProf.toDataURL('image/png') : '',
-                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : ''
+                firma_cuidador: canvasCuid ? canvasCuid.toDataURL('image/png') : '',
+                evidencias: evidenciasList
             };
         } catch (domErr) {
             alert("Error de extracción: " + domErr.message);
@@ -451,8 +602,18 @@ function setupFormSubmission(form, token) {
                 alert(activeLocalEditId ? 'El registro ha sido actualizado localmente.' : 'Sin conexión. El registro se ha guardado de forma segura en su dispositivo.');
                 window.location.replace('/sincronizacion');
             } catch (err) {
-                alert('Fallo al guardar en memoria caché.');
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert('Aviso: El tamaño de las evidencias supera la memoria caché del navegador (Offline). Se guardará el formulario sin los adjuntos pesados.');
+                    payload.evidencias = [];
+                    let syncQueue = JSON.parse(localStorage.getItem('aps_sync_queue')) || [];
+                    syncQueue = syncQueue.filter(q => q.payload.local_id !== payload.local_id);
+                    syncQueue.push({ modulo: 'fisioterapia', payload: payload, timestamp: new Date().toISOString() });
+                    localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
+                    window.location.replace('/sincronizacion');
+                } else {
+                    alert('Fallo crítico al guardar en memoria caché.');
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+                }
             }
         };
 
@@ -481,7 +642,7 @@ function setupFormSubmission(form, token) {
                 syncQueue = syncQueue.filter(q => q.payload.local_id !== activeLocalEditId);
                 localStorage.setItem('aps_sync_queue', JSON.stringify(syncQueue));
             }
-            alert('Valoración de Fisioterapia guardada en Base de Datos.');
+            alert('Valoración de Fisioterapia guardada en Base de Datos y evidencias cargadas en Drive.');
             window.location.replace('/registros');
 
         } catch (err) {
