@@ -13,7 +13,7 @@
     .table-grid-full { padding: 12px; border-bottom: 1px solid var(--border); width: 100%;}
 
     .table-checkbox-container { display: flex; flex-direction: column; gap: 4px; text-align: left; background: #fdfdfd; padding: 5px; border-radius: 4px; border: 1px solid #eee; }
-    .table-checkbox-item { font-size: 0.8rem; display: flex; align-items: flex-start; gap: 5px; color: #333; }
+    .table-checkbox-item { font-size: 0.8rem; display: flex; align-items: flex-start; gap: 5px; color: #333; margin-bottom: 2px;}
     .table-checkbox-item input { margin-top: 2px; }
 
     .view-mode-banner {
@@ -101,6 +101,7 @@
         <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
     </div>
 
+    <!-- SECCIÓN 2 MODIFICADA -->
     <div class="section-title">2. Tamizaje Motor en Primera Infancia (0 - 5 Años)</div>
     <div class="table-responsive">
         <table class="aps-table">
@@ -117,6 +118,7 @@
         </table>
     </div><button type="button" class="btn-add" id="add-caidas-btn"><i class="fas fa-plus"></i> Añadir AM</button>
 
+    <!-- SECCIÓN 4 MODIFICADA -->
     <div class="section-title">4. Identificación de Barreras Arquitectónicas</div>
     <div class="table-responsive">
         <table class="aps-table">
@@ -134,10 +136,20 @@
     </div>
     <button type="button" class="btn-add" id="add-barrera-btn"><i class="fas fa-plus"></i> Añadir Barrera</button>
 
+    <!-- SECCIÓN 5 MODIFICADA -->
     <div class="section-title">5. Detección de Factores de Riesgo Ergonómico</div>
     <div class="table-responsive">
         <table class="aps-table">
-            <thead><tr><th>Nombre Integrante</th><th>Ocupación</th><th>Factores Identificados</th><th>Sintomatología</th><th>Nivel Riesgo</th><th>Elim.</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Nombre Integrante</th>
+                    <th>Ocupación</th>
+                    <th style="width: 25%;">Factores Identificados</th>
+                    <th style="width: 25%;">Sintomatología</th>
+                    <th>Nivel Riesgo</th>
+                    <th>Elim.</th>
+                </tr>
+            </thead>
             <tbody id="ergo-body"></tbody>
         </table>
     </div><button type="button" class="btn-add" id="add-ergo-btn"><i class="fas fa-plus"></i> Añadir Trabajador</button>
@@ -249,6 +261,13 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- ANEXOS DIGITALES AÑADIDO (SECCIÓN NUEVA) -->
+    <div class="section-title">Anexos y Evidencias Digitales</div>
+    <div class="form-group" style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed var(--teal);">
+        <label>Cargar Archivos de Evidencia (Máximo 5 - Imágenes/PDF):</label>
+        <input type="file" id="evidencia-file" class="form-control" accept="image/*,application/pdf" multiple>
     </div>
 
     <div class="signatures-grid" style="margin-top: 30px;">
