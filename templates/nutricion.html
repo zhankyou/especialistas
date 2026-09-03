@@ -45,7 +45,6 @@
 {% block header_title %}VALORACIÓN NUTRICIONAL APS{% endblock %}
 
 {% block content %}
-<!-- Banner Informativo para Modo Solo Lectura -->
 <div id="view-mode-banner" class="view-mode-banner">
     <span><i class="fas fa-eye"></i> MODO VISUALIZACIÓN: Este expediente se encuentra bloqueado para lectura.</span>
     <span id="view-record-id" style="font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;"></span>
@@ -104,12 +103,21 @@
         <div class="form-group"><label>Familia Visita N° (01-90)</label><input type="text" id="visita_no" class="form-control" required></div>
     </div>
 
+    <!-- SECCIÓN 2 MODIFICADA CON COMBOBOX PARA DIAGNOSTICO NUTRICIONAL -->
     <div class="section-title">2. Valoración Antropométrica y Diagnóstico</div>
     <div class="table-responsive">
         <table class="aps-table">
             <thead>
                 <tr>
-                    <th>No.</th><th>Nombres y Apellidos</th><th>Condición</th><th>Peso (kg)</th><th>Talla (cm)</th><th>PB (cm)</th><th>Diagnóstico Nutricional</th><th>EPS</th><th>Elim.</th>
+                    <th style="width: 5%;">No.</th>
+                    <th style="width: 25%;">Nombres y Apellidos</th>
+                    <th style="width: 15%;">Condición</th>
+                    <th style="width: 10%;">Peso (kg)</th>
+                    <th style="width: 10%;">Talla (cm)</th>
+                    <th style="width: 10%;">PB (cm)</th>
+                    <th style="width: 20%;">Diagnóstico Nutricional</th>
+                    <th style="width: 10%;">EPS</th>
+                    <th style="width: 5%;">Elim.</th>
                 </tr>
             </thead>
             <tbody id="antropometria-body"></tbody>
@@ -162,6 +170,7 @@
         </div>
     </div>
 
+    <!-- ANEXOS DIGITALES -->
     <div class="form-group" style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed var(--teal);">
         <label>Cargar Archivos de Evidencia (Máximo 5 - Imágenes/PDF):</label>
         <input type="file" id="evidencia-file" class="form-control" accept="image/*,application/pdf" multiple>
@@ -196,10 +205,8 @@
         </div>
     </div>
 
-    <!-- Botonera Transaccional Estándar -->
     <button type="submit" id="submit-btn" class="submit-btn"><i class="fas fa-save"></i> Guardar y Generar Registro</button>
 
-    <!-- Barra de Acciones para Modo Solo Lectura (Read-Only) -->
     <div id="view-mode-actions" class="action-bar-footer" style="display: none;">
         <button type="button" id="btn-back-registros" class="btn-view-action btn-back"><i class="fas fa-arrow-left"></i> Volver a Registros</button>
         <button type="button" id="btn-enable-edit" class="btn-view-action btn-edit-mode"><i class="fas fa-edit"></i> Habilitar Edición</button>
