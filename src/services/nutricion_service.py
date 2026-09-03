@@ -9,7 +9,7 @@ from src.models.especialista_model import Especialista
 class NutricionService:
     """
     Servicio de Dominio para la gestion transaccional del formulario de Nutricion.
-    Implementa el Patron Upsert (Update/Insert) para evitar duplicacion de registros en edicion.
+    Implementa el Patron Upsert y encolamiento de anexos digitales a Google Drive.
     """
 
     @classmethod
@@ -72,8 +72,24 @@ class NutricionService:
             if target_id:
                 registro_existente = db.session.query(FormularioNutricion).filter_by(id=str(target_id)).first()
 
+            # =========================================================================
+            # PROCESAMIENTO MULTIMEDIA HACIA GOOGLE DRIVE
+            # =========================================================================
+            evidencias_payload = payload.get('evidencias', [])
+            evidencias_procesadas = []
+
+            if evidencias_payload:
+                from src.services.drive_service import DriveService
+                for idx, ev in enumerate(evidencias_payload):
+                    b64_data = ev.get('data')
+                    f_name = ev.get('nombre')
+                    if b64_data and f_name:
+                        safe_name = f"{str(payload.get('codigo_familia', 'FAM'))}_{idx}_{f_name}"
+                        link = DriveService.upload_base64_evidence(b64_data, safe_name, 'nutricion')
+                        if link:
+                            evidencias_procesadas.append({"nombre": safe_name, "url": link})
+
             if registro_existente:
-                # Modificacion Segura (OWASP A01)
                 if user_role not in ['ADMINISTRADOR',
                                      'COORDINADOR'] and registro_existente.especialista_email.lower() != especialista_email:
                     return {
@@ -81,6 +97,12 @@ class NutricionService:
                         "message": "Acceso denegado. No posee privilegios para editar este expediente.",
                         "code": 403
                     }
+
+                # Anexado In-Place de URLs de Drive a registros existentes
+                urls_existentes = registro_existente.evidencias_drive_urls or []
+                if not isinstance(urls_existentes, list):
+                    urls_existentes = []
+                urls_existentes.extend(evidencias_procesadas)
 
                 registro_existente.fecha_visita = fecha_dt
                 registro_existente.territorio = str(payload.get('territorio', '')).strip()
@@ -103,6 +125,8 @@ class NutricionService:
                 registro_existente.seguridad_alimentaria = legacy_seguridad_json
                 registro_existente.plan_cuidado = legacy_plan_cuidado_json
                 registro_existente.seguimiento = payload.get('seguimiento', {})
+                registro_existente.evidencias_drive_urls = urls_existentes
+
                 registro_existente.acc_disp = acc_disp
                 registro_existente.consumo = consumo
                 registro_existente.hfias = hfias
@@ -121,7 +145,6 @@ class NutricionService:
                 registro_existente.synced_at = datetime.utcnow()
                 db.session.commit()
 
-                print(f"[NUTRICION SERVICE] Expediente {target_id} actualizado exitosamente sin duplicacion.")
                 return {
                     "status": "success",
                     "message": f"Expediente Nutricion {target_id} actualizado correctamente.",
@@ -153,6 +176,7 @@ class NutricionService:
                     seguridad_alimentaria=legacy_seguridad_json,
                     plan_cuidado=legacy_plan_cuidado_json,
                     seguimiento=payload.get('seguimiento', {}),
+                    evidencias_drive_urls=evidencias_procesadas,
                     acc_disp=acc_disp,
                     consumo=consumo,
                     hfias=hfias,
@@ -172,7 +196,6 @@ class NutricionService:
                 db.session.add(nuevo_registro)
                 db.session.commit()
 
-                print(f"[NUTRICION SERVICE] Nuevo expediente {new_record_id} creado exitosamente.")
                 return {
                     "status": "success",
                     "message": f"Expediente Nutricion {new_record_id} creado exitosamente.",
