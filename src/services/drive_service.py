@@ -11,14 +11,15 @@ from config.settings import Config
 class DriveService:
     """
     Servicio conector para la API de Google Drive.
-    Implementa procesamiento en RAM, enrutamiento a Unidades Compartidas y sanitizacion Base64.
+    Implementa procesamiento en RAM, enrutamiento a Unidades Compartidas y sanitizacion Base64[cite: 11].
     """
     SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
     @classmethod
     def get_service(cls):
-        if not Config.GOOGLE_CREDENTIALS_JSON:
-            raise ValueError("Variable de entorno GOOGLE_CREDENTIALS_JSON no configurada o vacia.")
+        if not getattr(Config, 'GOOGLE_CREDENTIALS_JSON', None):
+            print("[DRIVE WARNING] GOOGLE_CREDENTIALS_JSON no configurada o vacia[cite: 11]. Subida omitida.")
+            return None
 
         try:
             creds_info = json.loads(Config.GOOGLE_CREDENTIALS_JSON)
@@ -26,23 +27,28 @@ class DriveService:
                 creds_info, scopes=cls.SCOPES)
             return build('drive', 'v3', credentials=creds)
         except json.JSONDecodeError:
-            raise ValueError("El formato de GOOGLE_CREDENTIALS_JSON es invalido.")
+            print("[DRIVE ERROR] El formato de GOOGLE_CREDENTIALS_JSON es invalido[cite: 11].")
+            return None
         except Exception as e:
-            raise RuntimeError(f"Fallo al construir el cliente de Google Drive: {str(e)}")
+            print(f"[DRIVE ERROR] Fallo al construir el cliente de Google Drive: {str(e)}[cite: 11]")
+            return None
 
     @classmethod
     def upload_stream_evidence(cls, file_stream: io.BytesIO, file_name: str, modulo: str,
                                mime_type: str = 'application/pdf') -> str:
-        try:
-            folder_id = Config.DRIVE_FOLDERS.get(modulo.lower())
-            if not folder_id:
-                raise ValueError(f"El modulo {modulo} no posee un repositorio de Drive configurado.")
+        service = cls.get_service()
+        if not service:
+            return ""
 
-            service = cls.get_service()
-            file_metadata = {
-                'name': file_name,
-                'parents': [folder_id]
-            }
+        try:
+            # Mapeo dinamico de carpeta destino o fallback a directorio root
+            folder_map = getattr(Config, 'DRIVE_FOLDERS', {})
+            folder_id = folder_map.get(modulo.lower())
+
+            file_metadata = {'name': file_name}
+            if folder_id:
+                file_metadata['parents'] = [folder_id]
+
             media = MediaIoBaseUpload(file_stream, mimetype=mime_type, resumable=True)
 
             uploaded_file = service.files().create(
@@ -52,24 +58,23 @@ class DriveService:
                 supportsAllDrives=True
             ).execute()
 
-            print(f"INFO: Evidencia {file_name} transferida exitosamente al modulo {modulo.upper()}.")
-            return uploaded_file.get('webViewLink')
+            print(
+                f"[DRIVE SUCCESS] Evidencia {file_name} transferida exitosamente al modulo {modulo.upper()}[cite: 11].")
+            return uploaded_file.get('webViewLink', '')
 
         except HttpError as e:
-            if e.resp.status in [403, 404]:
-                msg = f"Error IAM GCP: La carpeta destino ({folder_id}) no existe o la cuenta de servicio no tiene rol de Editor."
-                print(f"[CRITICAL IAM] {msg}")
-                raise PermissionError(msg)
-            raise e
+            print(
+                f"[CRITICAL IAM] Error GCP: Carpeta ({folder_id}) inexistente o la cuenta carece de rol de Editor[cite: 11]. Detalles: {str(e)}")
+            return ""
         except Exception as e:
-            print(f"Error critico en transferencia a Google Drive: {str(e)}")
-            raise e
+            print(f"[DRIVE ERROR] Error critico en transferencia a Google Drive: {str(e)}[cite: 11]")
+            return ""
 
     @classmethod
     def upload_base64_evidence(cls, base64_data: str, file_name: str, modulo: str) -> str:
         try:
             if not base64_data or not isinstance(base64_data, str):
-                raise ValueError("Payload Base64 invalido o vacio.")
+                return ""
 
             b64_clean = base64_data.strip()
             if "," in b64_clean:
@@ -82,24 +87,19 @@ class DriveService:
                 b64_str = b64_clean
                 mime_type = 'application/pdf' if file_name.lower().endswith('.pdf') else 'image/jpeg'
 
-            # Sanitizacion Estricta Base64 (Limpieza de saltos de linea y calculo de padding)
+            # Sanitizacion Estricta Base64 (Limpieza de saltos de linea y calculo de padding)[cite: 11]
             b64_str = ''.join(b64_str.split())
             b64_str += "=" * ((4 - len(b64_str) % 4) % 4)
             file_bytes = base64.b64decode(b64_str)
-            memory_buffer = io.BytesIO(file_bytes)
 
-            try:
+            with io.BytesIO(file_bytes) as memory_buffer:
                 return cls.upload_stream_evidence(
                     file_stream=memory_buffer,
                     file_name=file_name,
                     modulo=modulo,
                     mime_type=mime_type
                 )
-            finally:
-                memory_buffer.close()
 
-        except PermissionError as e:
-            raise e
         except Exception as e:
-            print(f"Error critico decodificando Base64 en RAM: {str(e)}")
-            raise e
+            print(f"[DRIVE ERROR] Error critico decodificando Base64 en RAM: {str(e)}[cite: 11]")
+            return ""
