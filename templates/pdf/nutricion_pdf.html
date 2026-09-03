@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* CONFIGURACIÓN DE PÁGINA (ISO A4/Letter Standard) */
+        /* CONFIGURACIÓN DE PÁGINA Y MARGENES (ISO A4/Letter Standard)[cite: 22] */
         @page {
             size: letter portrait;
             margin: 1.2cm 1.5cm 2cm 1.5cm;
@@ -44,21 +44,24 @@
             font-size: 10pt;
             font-weight: bold;
             padding: 4px 8px;
-            margin-top: 10px;
+            margin-top: 15px;
             margin-bottom: 6px;
             text-transform: uppercase;
+            page-break-after: avoid; /* Prevencion de Corte PDF */
         }
 
-        /* TABLAS DE ATRIBUTO-VALOR */
-        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        /* TABLAS DE ATRIBUTO-VALOR (Seccion 1, 3, 4 y 5) */
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; page-break-inside: avoid; }
         .info-table td { border: 1px solid #c2c9d6; padding: 5px 6px; font-size: 8.5pt; vertical-align: middle; }
         .info-label { background-color: #ecf0f1; color: #0033a0; font-weight: bold; width: 25%; }
         .info-value { color: #222222; }
 
-        /* TABLAS DE GRILLA */
-        .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        /* TABLAS DE GRILLA DINAMICA (Prevencion de desbordamiento horizontal) */
+        .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: fixed; }
+        .grid-table tr { page-break-inside: avoid; }
         .grid-table th { background-color: #0033a0; color: #ffffff; padding: 5px; font-size: 8pt; font-weight: bold; text-align: center; border: 1px solid #0033a0;}
-        .grid-table td { border: 1px solid #c2c9d6; padding: 5px; font-size: 8.5pt; text-align: center; color: #222222;}
+        .grid-table td { border: 1px solid #c2c9d6; padding: 5px; font-size: 8.5pt; text-align: left; color: #222222; word-wrap: break-word;}
+        .td-center { text-align: center !important; }
 
         /* SECCIÓN DE FIRMAS */
         .signatures { width: 100%; margin-top: 25px; border: none; page-break-inside: avoid; }
@@ -106,7 +109,7 @@
         </tr>
     </table>
 
-    <!-- SECCIÓN 1: DATOS GENERALES DE IDENTIFICACIÓN (Estandarizado) -->
+    <!-- SECCIÓN 1: DATOS GENERALES DE IDENTIFICACIÓN -->
     <div class="section-title">1. DATOS GENERALES DE IDENTIFICACIÓN</div>
     <table class="info-table">
         <tr>
@@ -133,51 +136,51 @@
         </tr>
     </table>
 
-    <!-- SECCIÓN 2: VALORACIÓN ANTROPOMÉTRICA Y DIAGNÓSTICO -->
+    <!-- SECCIÓN 2: VALORACIÓN ANTROPOMÉTRICA -->
     <div class="section-title">2. VALORACIÓN ANTROPOMÉTRICA Y DIAGNÓSTICO</div>
     <table class="grid-table">
         <tr>
-            <th style="width: 28%;">Nombres y Apellidos</th>
-            <th style="width: 12%;">Condición</th>
-            <th style="width: 9%;">Peso</th>
-            <th style="width: 9%;">Talla</th>
-            <th style="width: 9%;">PB</th>
-            <th style="width: 21%;">Diagnóstico</th>
-            <th style="width: 12%;">EPS</th>
+            <th style="width: 30%;">Nombres y Apellidos</th>
+            <th style="width: 15%;">Condición</th>
+            <th style="width: 7%;">Peso(kg)</th>
+            <th style="width: 7%;">Talla(cm)</th>
+            <th style="width: 6%;">PB(cm)</th>
+            <th style="width: 25%;">Diagnóstico Nutricional</th>
+            <th style="width: 10%;">EPS</th>
         </tr>
         {% if data.antropometria %}
             {% for paciente in data.antropometria %}
             <tr>
-                <td style="text-align: left;">{{ paciente.nombre }}</td>
-                <td>{{ paciente.condicion }}</td>
-                <td>{{ paciente.peso }} kg</td>
-                <td>{{ paciente.talla }} cm</td>
-                <td>{{ paciente.pb }} cm</td>
-                <td>{{ paciente.diagnostico }}</td>
-                <td>{{ paciente.eps }}</td>
+                <td>{{ paciente.nombre }}</td>
+                <td class="td-center">{{ paciente.condicion }}</td>
+                <td class="td-center">{{ paciente.peso }}</td>
+                <td class="td-center">{{ paciente.talla }}</td>
+                <td class="td-center">{{ paciente.pb }}</td>
+                <td class="td-center"><strong>{{ paciente.dx }}</strong></td>
+                <td class="td-center">{{ paciente.eps }}</td>
             </tr>
             {% endfor %}
         {% else %}
-            <tr><td colspan="7">No se registraron datos antropométricos.</td></tr>
+            <tr><td colspan="7" class="td-center">No se registraron datos antropométricos.</td></tr>
         {% endif %}
     </table>
 
-    <!-- SECCIÓN 3: ANÁLISIS DE LA SEGURIDAD ALIMENTARIA FAMILIAR -->
+    <!-- SECCIÓN 3: SEGURIDAD ALIMENTARIA FAMILIAR -->
     <div class="section-title">3. ANÁLISIS DE LA SEGURIDAD ALIMENTARIA FAMILIAR</div>
     <table class="info-table">
         <tr>
             <td class="info-label" style="width: 35%;">Acceso y Disponibilidad de Alimentos</td>
-            <td class="info-value">{{ data.seguridad_alimentaria.acceso|default('No especificado') }}</td>
+            <td class="info-value"><strong>{{ data.acc_disp|default('No especificado') }}</strong></td>
         </tr>
         <tr>
             <td class="info-label">Consumo Real y Hábitos en el Hogar</td>
-            <td class="info-value">{{ data.seguridad_alimentaria.consumo|default('No especificado') }}</td>
+            <td class="info-value"><strong>{{ data.consumo|default('No especificado') }}</strong></td>
         </tr>
         <tr>
             <td class="info-label">Percepción del Acceso (HFIAS)</td>
             <td class="info-value">
                 ¿Algún miembro dejó de comer por falta de dinero?:
-                <strong>{% if data.seguridad_alimentaria.percepcion_hfias %}SÍ{% else %}NO{% endif %}</strong>
+                <strong>{% if data.hfias == 'SI' %}SÍ{% else %}NO{% endif %}</strong>
             </td>
         </tr>
     </table>
@@ -188,12 +191,8 @@
         <tr>
             <td class="info-label" style="width: 35%;">Líneas de Acción Impartidas</td>
             <td class="info-value">
-                {% if data.plan_cuidado.lineas %}
-                    <ul class="m-0" style="padding-left: 15px; margin: 0;">
-                        {% for linea in data.plan_cuidado.lineas %}
-                            <li>{{ linea }}</li>
-                        {% endfor %}
-                    </ul>
+                {% if data.lineas_accion %}
+                    {{ data.lineas_accion | join(', ') }}
                 {% else %}
                     Ninguna seleccionada
                 {% endif %}
@@ -201,11 +200,11 @@
         </tr>
         <tr>
             <td class="info-label">Otra Línea de Acción</td>
-            <td class="info-value">{{ data.plan_cuidado.lineas_otra|default('N/A', true) }}</td>
+            <td class="info-value">{{ data.lineas_otra|default('N/A', true) }}</td>
         </tr>
         <tr>
             <td class="info-label">Compromiso Familiar Acordado</td>
-            <td class="info-value">{{ data.plan_cuidado.compromiso|default('N/A', true) }}</td>
+            <td class="info-value">{{ data.compromiso|default('N/A', true) }}</td>
         </tr>
     </table>
 
@@ -236,15 +235,15 @@
             <td class="info-label">Evidencia Almacenada (Nube)</td>
             <td class="info-value">
                 {% if data.evidencias_drive_urls %}
-                    Se respaldaron de forma segura <strong>{{ data.evidencias_drive_urls | length }} archivo(s)</strong> encriptado(s).
+                    Se respaldaron de forma segura <strong>{{ data.evidencias_drive_urls | length }} archivo(s)</strong> encriptado(s) en Drive.
                 {% else %}
-                    No se adjuntaron evidencias digitales.
+                    No se adjuntaron evidencias digitales al momento del registro.
                 {% endif %}
             </td>
         </tr>
         <tr>
             <td class="info-label">Remisión de Paciente</td>
-            <td class="info-value"><strong>{% if data.remite %}SÍ REQUIERE REMISIÓN PRIORITARIA{% else %}NO REQUIERE REMISIÓN{% endif %}</strong></td>
+            <td class="info-value"><strong>{% if data.remite == 'SI' %}SÍ REQUIERE REMISIÓN PRIORITARIA{% else %}NO REQUIERE REMISIÓN{% endif %}</strong></td>
         </tr>
     </table>
 
@@ -267,7 +266,7 @@
                     <br><br><br><br>
                 {% endif %}
                 <div class="signature-line">Firma Representante Familiar / Cuidador</div>
-                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. {{ data.cc_cuidador|default('No registrado', true) }}</div>
+                <div style="font-size: 8.5pt; color: #444; margin-top: 3px;">C.C. Original: {{ data.doc_identidad|default('N/A', true) }} | C.C. Firma: {{ data.cc_cuidador|default('No registrado', true) }}</div>
             </td>
         </tr>
     </table>
