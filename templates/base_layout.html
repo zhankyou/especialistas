@@ -59,7 +59,12 @@
                     <a href="/registros"><i class="fas fa-database"></i> Gestor de Expedientes</a>
                 </li>
 
-                <!-- ARQUITECTURA IAM: Oculto por defecto para evitar destellos visuales (FOUC) -->
+                <!-- NUEVO MÓDULO DE MAPAS GEOESPACIALES -->
+                <li class="{% if request.path == '/mapas' %}active{% endif %}">
+                    <a href="/mapas"><i class="fas fa-map-marked-alt"></i> Georreferenciación</a>
+                </li>
+
+                <!-- ARQUITECTURA IAM: Oculto por defecto para evitar destellos visuales (FOUC)[cite: 28] -->
                 <li id="menu-iam" class="{% if request.path == '/usuarios' %}active{% endif %}" style="display: none;">
                     <a href="/usuarios"><i class="fas fa-users-cog"></i> Administración de Cuentas</a>
                 </li>
@@ -98,7 +103,7 @@
         </div>
     </div>
 
-    <!-- ARQUITECTURA PWA: Registro del Service Worker -->
+    <!-- ARQUITECTURA PWA: Registro del Service Worker[cite: 28] -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
