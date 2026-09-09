@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>APS ESE 2026 - Especialistas</title>
 
-    <!-- Meta PWA / Directivas Moviles Android e iOS -->
+    <!-- Meta PWA / Directivas Moviles Android e iOS[cite: 29] -->
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="/manifest.json?v=2.1.0">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <!-- Autenticacion Frontal Estricta -->
+    <!-- Autenticacion Frontal Estricta[cite: 29] -->
     <script>
         (function() {
             const currentPath = window.location.pathname;
@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="/static/css/custom_alerts.css?v=2.1.0">
 
     <style>
-        /* Arquitectura Failsafe: Flexbox garantizado en el sidebar */
+        /* Arquitectura Failsafe: Flexbox garantizado en el sidebar[cite: 29] */
         .sidebar {
             display: flex !important;
             flex-direction: column !important;
@@ -55,7 +55,7 @@
         .sidebar-footer-container {
             flex-shrink: 0 !important;
             padding: 15px !important;
-            background: #0f172a !important; /* Mismo color del sidebar para integracion visual */
+            background: #0f172a !important;
             border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
             z-index: 9999 !important;
         }
@@ -89,6 +89,12 @@
                     <li>
                         <a href="/registros"><i class="fas fa-database"></i> Gestor de Expedientes</a>
                     </li>
+
+                    <!-- NUEVO MÓDULO DE MAPAS GEOESPACIALES -->
+                    <li>
+                        <a href="/mapas"><i class="fas fa-map-marked-alt"></i> Georreferenciación</a>
+                    </li>
+
                     <li id="menu-iam" style="display: none;">
                         <a href="/usuarios"><i class="fas fa-users-cog"></i> Administracion de Cuentas</a>
                     </li>
@@ -130,7 +136,7 @@
             </header>
 
             <main class="content-body">
-                <!-- INYECCION DINAMICA DEL MOTOR JINJA2 -->
+                <!-- INYECCION DINAMICA DEL MOTOR JINJA2[cite: 29] -->
                 {% block content %}
                 {% endblock %}
             </main>
