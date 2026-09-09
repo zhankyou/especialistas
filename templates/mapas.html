@@ -1,0 +1,153 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Georreferenciación · APS{% endblock %}
+
+{% block extra_css %}
+<!-- Leaflet CSS (Open Source Maps) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+    .map-container-wrapper {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    .filter-bar {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        flex-wrap: wrap;
+    }
+    .filter-bar input {
+        flex: 1;
+        min-width: 250px;
+        padding: 10px 15px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-family: 'Sora', sans-serif;
+    }
+    .filter-bar input:focus {
+        outline: none;
+        border-color: var(--teal);
+        box-shadow: 0 0 0 3px rgba(0, 176, 155, 0.15);
+    }
+    .filter-bar input:disabled {
+        background: #e2e8f0;
+        color: #64748b;
+        cursor: not-allowed;
+    }
+    .btn-search-map {
+        background: var(--navy);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: 0.3s;
+    }
+    .btn-search-map:hover { background: #1e293b; }
+
+    .map-stats {
+        display: flex;
+        gap: 15px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        flex-wrap: wrap;
+    }
+    .stat-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot-nut { background: #10b981; }
+    .dot-fis { background: #f59e0b; }
+    .dot-res { background: #0ea5e9; }
+
+    #map {
+        width: 100%;
+        height: 60vh;
+        min-height: 450px;
+        border-radius: 8px;
+        border: 2px solid #cbd5e1;
+        z-index: 1;
+    }
+
+    /* Estilos para la Tabla Geoespacial */
+    .table-wrapper { background: white; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; margin-top: 10px; }
+    .geo-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .geo-table th { background: #f8fafc; padding: 12px 15px; border-bottom: 2px solid var(--border); color: var(--navy); font-size: 0.85rem; text-transform: uppercase; }
+    .geo-table td { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: #334155; }
+    .geo-table tr:hover { background: #f1f5f9; }
+</style>
+{% endblock %}
+
+{% block header_title %}GEORREFERENCIACIÓN Y COBERTURA TERRITORIAL{% endblock %}
+
+{% block content %}
+<div class="map-container-wrapper">
+
+    <div class="filter-bar">
+        <label style="font-weight:bold; color:var(--navy);"><i class="fas fa-filter"></i> Filtrar Puntos:</label>
+
+        <!-- Input con Autocompletado (Datalist HTML5) -->
+        <input type="email" id="map-email-filter" list="email-suggestions" placeholder="Escriba el correo institucional del especialista..." autocomplete="off">
+        <datalist id="email-suggestions"></datalist>
+
+        <button id="btn-load-map" class="btn-search-map"><i class="fas fa-map-marked-alt"></i> Trazar Ruta</button>
+
+        <div class="map-stats">
+            <div class="stat-badge"><span class="dot dot-nut"></span> Nutrición</div>
+            <div class="stat-badge"><span class="dot dot-fis"></span> Fisioterapia</div>
+            <div class="stat-badge"><span class="dot dot-res"></span> Respiratoria</div>
+        </div>
+    </div>
+
+    <!-- Contenedor del Motor Geográfico Leaflet -->
+    <div id="map"></div>
+
+    <!-- Tabla Detallada de Geopuntos -->
+    <div class="table-wrapper">
+        <table class="geo-table">
+            <thead>
+                <tr>
+                    <th>Fecha de Visita</th>
+                    <th>Especialidad</th>
+                    <th>Cód. Familia</th>
+                    <th>Especialista</th>
+                    <th>Latitud</th>
+                    <th>Longitud</th>
+                    <th style="text-align:center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="map-table-body">
+                <tr><td colspan="7" style="text-align:center; padding: 30px; color: #94a3b8;"><i class="fas fa-search"></i> Ejecute un filtro para visualizar el registro de coordenadas.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/static/js/mapas.js" defer></script>
+{% endblock %}
