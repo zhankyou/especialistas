@@ -55,6 +55,7 @@ def auto_repair_database_schema(app_instance):
                     'seguridad_alimentaria': 'JSON',
                     'plan_cuidado': 'JSON',
                     'seguimiento': 'JSON',
+                    'evidencias_drive_urls': 'JSON',
                     'is_deleted': 'BOOLEAN DEFAULT FALSE NOT NULL',
                     'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
                     'synced_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
@@ -84,6 +85,7 @@ def auto_repair_database_schema(app_instance):
                     'cc_cuidador': "VARCHAR(50) DEFAULT '0'",
                     'firma_profesional': 'TEXT',
                     'firma_cuidador': 'TEXT',
+                    'evidencias_drive_urls': 'JSON',
                     'is_deleted': 'BOOLEAN DEFAULT FALSE NOT NULL',
                     'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
                     'synced_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
@@ -107,6 +109,7 @@ def auto_repair_database_schema(app_instance):
                     'cc_cuidador': "VARCHAR(50) DEFAULT '0'",
                     'firma_profesional': 'TEXT',
                     'firma_cuidador': 'TEXT',
+                    'evidencias_drive_urls': 'JSON',
                     'is_deleted': 'BOOLEAN DEFAULT FALSE NOT NULL',
                     'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
                     'synced_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
@@ -123,7 +126,7 @@ def auto_repair_database_schema(app_instance):
                                 conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def};"))
                 conn.commit()
 
-            # 3. Barredora Dinámica Masiva de Restricciones NOT NULL (Solución Definitiva DML)
+            # 3. Barredora Dinámica Masiva de Restricciones NOT NULL
             target_tables = ['formulario_nutricionista', 'formulario_fisioterapia', 'formulario_respiratoria']
             with db.engine.connect() as conn:
                 for table_name in target_tables:
@@ -134,9 +137,11 @@ def auto_repair_database_schema(app_instance):
                             if col_name.lower() != 'id' and not col.get('nullable', True):
                                 try:
                                     print(f"[AUTO-REPAIR] Liberando restriccion NOT NULL en {table_name}.{col_name}")
-                                    conn.execute(text(f"ALTER TABLE {table_name} ALTER COLUMN \"{col_name}\" DROP NOT NULL;"))
+                                    conn.execute(
+                                        text(f"ALTER TABLE {table_name} ALTER COLUMN \"{col_name}\" DROP NOT NULL;"))
                                 except Exception as ex_drop:
-                                    print(f"[AUTO-REPAIR WARNING] No se pudo alterar {table_name}.{col_name}: {str(ex_drop)}")
+                                    print(
+                                        f"[AUTO-REPAIR WARNING] No se pudo alterar {table_name}.{col_name}: {str(ex_drop)}")
                 conn.commit()
 
             # 4. Tabla: registros_aps
@@ -144,9 +149,11 @@ def auto_repair_database_schema(app_instance):
                 existing_cols = [col['name'] for col in inspector.get_columns('registros_aps')]
                 with db.engine.connect() as conn:
                     if 'is_deleted' not in existing_cols:
-                        conn.execute(text("ALTER TABLE registros_aps ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE NOT NULL;"))
+                        conn.execute(
+                            text("ALTER TABLE registros_aps ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE NOT NULL;"))
                     if 'created_at' not in existing_cols:
-                        conn.execute(text("ALTER TABLE registros_aps ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                        conn.execute(text(
+                            "ALTER TABLE registros_aps ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
                     conn.commit()
 
             db.create_all()
@@ -182,24 +189,37 @@ def create_app():
 
     @app.route('/')
     def index(): return redirect(url_for('login_page'))
+
     @app.route('/login')
     def login_page(): return render_template('login.html')
+
     @app.route('/dashboard')
     def dashboard_page(): return render_template('dashboard.html')
+
     @app.route('/usuarios')
     def usuarios_page(): return render_template('usuarios.html')
+
     @app.route('/registros')
     def registros_page(): return render_template('registros.html')
+
     @app.route('/nuevo_registro')
     def nuevo_registro_page(): return render_template('nuevo_registro.html')
+
     @app.route('/sincronizacion')
     def sincronizacion_page(): return render_template('sincronizacion.html')
+
     @app.route('/nutricion')
     def nutricion_page(): return render_template('nutricion.html')
+
     @app.route('/respiratoria')
     def respiratoria_page(): return render_template('respiratoria.html')
+
     @app.route('/fisioterapia')
     def fisioterapia_page(): return render_template('fisioterapia.html')
+
+    # Registro de Nueva Vista: Mapas Geoespaciales
+    @app.route('/mapas')
+    def mapas_page(): return render_template('mapas.html')
 
     @app.after_request
     def apply_security_headers(response):
